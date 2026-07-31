@@ -4,6 +4,7 @@ import { Volume2 } from 'lucide-react';
 import TalkAndTranslate from '../../components/TalkAndTranslate';
 import { GRANDMA_NAME, grandmaLangCode, nativeName } from '../../lib/langs';
 import { T, translate, useLang } from '../../lib/i18n';
+import { playSpeech, stopSpeech } from '../../lib/audio';
 
 type Message = {
   id: string;
@@ -25,28 +26,22 @@ export default function MessagesPage() {
   const [error, setError] = useState('');
   const [speakingId, setSpeakingId] = useState<string | null>(null);
   const [ttsError, setTtsError] = useState('');
-  const seenIds = useRef<Set<string>>(new Set());
-  const audioRef = useRef<HTMLAudioElement | null>(null);
   const loadInFlight = useRef(false);
   const speakingIdRef = useRef<string | null>(null);
+  // Bumps on every speak() call; a fetch that resolves after a newer tap is
+  // stale and must not play or touch UI state — "last tap wins".
+  const speakSeq = useRef(0);
 
   const isReply = (m: Message) => m.sender_name !== GRANDMA_NAME;
 
-  const stopAudio = () => {
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.src = '';
-      audioRef.current = null;
-    }
-    setSpeakingId(null);
-    speakingIdRef.current = null;
-  };
-
   const speak = useCallback(async (m: Message) => {
     if (speakingIdRef.current === m.id) return;
+    const mySeq = ++speakSeq.current;
     const targetLang = isReply(m) ? grandmaLangCode() : 'en-IN';
     try {
-      stopAudio();
+      // Shared app-wide audio: stops any playback in progress (a message
+      // bubble or the reply notifier) and resets its UI state.
+      stopSpeech();
       speakingIdRef.current = m.id;
       setTtsError('');
       setSpeakingId(m.id);
@@ -57,18 +52,15 @@ export default function MessagesPage() {
       });
       const data = await res.json();
       if (!res.ok || !data.audio) throw new Error(data.error || 'TTS failed');
-      const audio = new Audio(`data:audio/wav;base64,${data.audio}`);
-      audioRef.current = audio;
-      audio.onended = () => {
-        setSpeakingId(null);
-        speakingIdRef.current = null;
-      };
-      audio.onerror = () => {
-        setSpeakingId(null);
-        speakingIdRef.current = null;
-      };
-      await audio.play();
+      if (mySeq !== speakSeq.current) return; // superseded by a newer tap
+      playSpeech(data.audio, () => {
+        if (speakingIdRef.current === m.id) {
+          setSpeakingId(null);
+          speakingIdRef.current = null;
+        }
+      });
     } catch (err: any) {
+      if (mySeq !== speakSeq.current) return; // don't clobber a newer tap
       setSpeakingId(null);
       speakingIdRef.current = null;
       setTtsError(translate(lang, 'messages.ttsError'));
@@ -85,14 +77,6 @@ export default function MessagesPage() {
       const list: Message[] = Array.isArray(data) ? data : [];
       setHistory(list);
       setError('');
-
-      // Auto-read newly arrived family replies (skip old ones on first load)
-      const firstLoad = seenIds.current.size === 0;
-      const newReplies = list.filter((m) => isReply(m) && !seenIds.current.has(m.id));
-      if (!firstLoad && newReplies.length > 0) {
-        speak(newReplies[0]);
-      }
-      list.forEach((m) => seenIds.current.add(m.id));
     } catch {
       setError(translate(lang, 'messages.loadError'));
     } finally {
@@ -105,7 +89,7 @@ export default function MessagesPage() {
     const id = setInterval(load, 2500);
     return () => {
       clearInterval(id);
-      stopAudio();
+      stopSpeech();
     };
   }, [load]);
 
@@ -176,7 +160,14 @@ export default function MessagesPage() {
                         {m.translated_text}
                       </div>
                       <button
-                        onClick={() => (speakingId === m.id ? stopAudio() : speak(m))}
+                        onClick={() => {
+                          if (speakingId === m.id) {
+                            speakSeq.current++; // cancel any in-flight fetch too
+                            stopSpeech();
+                          } else {
+                            speak(m);
+                          }
+                        }}
                         aria-label={translate(lang, 'messages.playAloud')}
                         className={`mt-1 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-line text-ink-muted transition-colors hover:bg-card-soft hover:text-ink ${
                           speakingId === m.id ? 'bg-accent-soft text-accent' : ''

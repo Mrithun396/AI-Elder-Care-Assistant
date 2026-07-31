@@ -27,6 +27,10 @@ export default function TalkAndTranslate() {
   const unmountedRef = useRef(false);
 
   useEffect(() => {
+    // React StrictMode (dev) mounts -> unmounts -> remounts, so the cleanup
+    // below runs once and would leave unmountedRef stuck true on the remount.
+    // Reset it on every mount so handleStop never bails early in dev.
+    unmountedRef.current = false;
     return () => {
       unmountedRef.current = true;
       recorderRef.current?.stop();

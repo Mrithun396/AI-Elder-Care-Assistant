@@ -12,6 +12,7 @@ import {
   HeartHandshake,
 } from 'lucide-react';
 import { LangProvider, T, useLang, translate } from '../lib/i18n';
+import ReplyNotifier from './ReplyNotifier';
 
 const NAV = [
   { href: '/', label: 'nav.home', icon: Home, short: 'nav.home' },
@@ -127,6 +128,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           ))}
         </div>
       </nav>
+
+      {/* Slide-in notification when a family reply arrives */}
+      <ReplyNotifier />
     </div>
     </LangProvider>
   );

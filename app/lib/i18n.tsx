@@ -148,6 +148,13 @@ export const DICT: Record<string, Entry> = {
     ta: 'பேச்சு கண்டறியப்படவில்லை — மைக்ரோஃபோன் அமைதியாக இருக்கலாம். மீண்டும் முயற்சிக்கவும்.',
   },
 
+  // ---- Reply Notification ----
+  'notif.newMessage': { en: 'New message', ta: 'புதிய செய்தி' },
+  'notif.from': { en: 'from {name}', ta: '{name} இலிருந்து' },
+  'notif.tapToHear': { en: 'Tap to hear it aloud', ta: 'சத்தமாக கேட்க தொடவும்' },
+  'notif.says': { en: 'says', ta: 'சொல்கிறார்' },
+  'notif.close': { en: 'Dismiss', ta: 'மூடு' },
+
   // ---- Settings ----
   'settings.title': { en: 'Settings', ta: 'அமைப்புகள்' },
   'settings.subtitle': { en: 'Make Bridge feel like home.', ta: 'பிரிட்ஜ் உங்களுக்கு வீடு போல் இருக்கட்டும்.' },
