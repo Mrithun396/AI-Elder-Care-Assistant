@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import { Volume2, X } from 'lucide-react';
-import { GRANDMA_NAME, grandmaLangCode } from '../lib/langs';
+import { GRANDMA_NAME, grandmaLangCode, grandmaVoice } from '../lib/langs';
 import { T, fmt, translate, useLang } from '../lib/i18n';
 import { playSpeech, stopSpeech } from '../lib/audio';
 
@@ -52,7 +52,7 @@ export default function ReplyNotifier() {
       const res = await fetch('/api/tts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text, target_language_code: grandmaLangCode() }),
+        body: JSON.stringify({ text, target_language_code: grandmaLangCode(), speaker: grandmaVoice() }),
       });
       const data = await res.json();
       if (!res.ok || !data.audio) throw new Error(data.error || 'TTS failed');

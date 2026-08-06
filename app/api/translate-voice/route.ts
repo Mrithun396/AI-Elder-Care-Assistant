@@ -15,6 +15,9 @@ async function fetchWithTimeout(url: string, init: RequestInit, ms: number) {
 
 export async function POST(req: NextRequest) {
   try {
+    // ?mode=transcribe returns only the transcript (used by the AI Companion,
+    // which just needs to *listen* — no second-language translation).
+    const transcribeOnly = req.nextUrl.searchParams.get('mode') === 'transcribe';
     const formData = await req.formData();
     const audioFile = formData.get('audio') as File;
     if (!audioFile) return NextResponse.json({ error: 'No audio file' }, { status: 400 });
@@ -46,6 +49,14 @@ export async function POST(req: NextRequest) {
       if (!res.ok) throw new Error(`Sarvam ${mode} failed: ${await res.text()}`);
       return res.json();
     };
+
+    if (transcribeOnly) {
+      const native = await callSarvam('transcribe');
+      return NextResponse.json({
+        original_text: native.transcript,
+        original_language: native.language_code,
+      });
+    }
 
     const [native, translated] = await Promise.all([
       callSarvam('transcribe'),

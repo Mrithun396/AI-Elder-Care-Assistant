@@ -2,7 +2,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { Volume2 } from 'lucide-react';
 import TalkAndTranslate from '../../components/TalkAndTranslate';
-import { GRANDMA_NAME, grandmaLangCode, nativeName } from '../../lib/langs';
+import { GRANDMA_NAME, grandmaLangCode, grandmaVoice, nativeName } from '../../lib/langs';
 import { T, translate, useLang } from '../../lib/i18n';
 import { playSpeech, stopSpeech } from '../../lib/audio';
 
@@ -48,7 +48,7 @@ export default function MessagesPage() {
       const res = await fetch('/api/tts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: m.translated_text, target_language_code: targetLang }),
+        body: JSON.stringify({ text: m.translated_text, target_language_code: targetLang, speaker: grandmaVoice() }),
       });
       const data = await res.json();
       if (!res.ok || !data.audio) throw new Error(data.error || 'TTS failed');

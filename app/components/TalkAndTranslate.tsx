@@ -48,7 +48,9 @@ export default function TalkAndTranslate() {
       .catch(() => setError(translate(lang, 'tnt.errFamily')));
   }, []);
 
-  const stopTracks = () => {
+  // Declared as a function (hoisted) so the unmount effect above can call it
+  // without a temporal-dead-zone lint error.
+  function stopTracks() {
     streamRef.current?.getTracks().forEach(t => t.stop());
     streamRef.current = null;
     if (levelTimerRef.current) {
@@ -59,7 +61,7 @@ export default function TalkAndTranslate() {
       audioCtxRef.current.close().catch(() => {});
       audioCtxRef.current = null;
     }
-  };
+  }
 
   const start = async () => {
     if (recording || loading) return;

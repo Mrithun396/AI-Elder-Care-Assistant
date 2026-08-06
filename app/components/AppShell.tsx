@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { LangProvider, T, useLang, translate } from '../lib/i18n';
 import ReplyNotifier from './ReplyNotifier';
+import MedicationReminder from './MedicationReminder';
 
 const NAV = [
   { href: '/', label: 'nav.home', icon: Home, short: 'nav.home' },
@@ -131,6 +132,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
       {/* Slide-in notification when a family reply arrives */}
       <ReplyNotifier />
+      {/* Medicine reminders fire on any screen when a dose is due */}
+      <MedicationReminder />
     </div>
     </LangProvider>
   );

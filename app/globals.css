@@ -61,8 +61,10 @@
 body {
   background: var(--canvas);
   color: var(--ink);
-  /* Latin text renders in Geist; Tamil glyphs fall through to Noto Sans Tamil. */
-  font-family: var(--font-geist-sans), var(--font-tamil), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  /* Latin text renders in Geist; Tamil → Noto Sans Tamil, Bengali → Noto Sans
+     Bengali, Gurmukhi → Noto Sans Gurmukhi, Oriya → Noto Sans Oriya (the
+     system Indic faces are cramped). */
+  font-family: var(--font-geist-sans), var(--font-tamil), var(--font-bengali), var(--font-gurmukhi), var(--font-oriya), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 /* Glassmorphism */

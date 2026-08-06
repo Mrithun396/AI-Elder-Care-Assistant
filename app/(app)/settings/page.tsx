@@ -1,12 +1,12 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { Languages, Volume2, Users, Moon, Info, ChevronRight, HeartHandshake } from 'lucide-react';
-import { LANGS, codeForLang } from '../../lib/langs';
+import { Languages, Volume2, Users, Moon, Info, ChevronRight, HeartHandshake, Play, Square } from 'lucide-react';
+import { LANGS, VOICES, codeForLang, grandmaLangCode, voiceLabel } from '../../lib/langs';
 import { T, translate, useLang } from '../../lib/i18n';
+import { playSpeech, stopSpeech } from '../../lib/audio';
 
 const LANG_NAMES = LANGS.map((l) => l.name);
-const VOICES = ['Female — Priya (Tamil)', 'Male — Arun (Hindi)', 'Female — Anjali (English)'];
 
 type FamilyMember = { id: string; name: string; relation: string };
 
@@ -14,8 +14,14 @@ export default function SettingsPage() {
   const uiLang = useLang();
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [lang, setLang] = useState('Tamil');
-  const [voice, setVoice] = useState(VOICES[0]);
+  const [voice, setVoice] = useState('ishita');
   const [family, setFamily] = useState<FamilyMember[]>([]);
+  // Which voice is currently being previewed (its id, or null).
+  const [previewing, setPreviewing] = useState<string | null>(null);
+  const [previewErr, setPreviewErr] = useState('');
+  // Guards a stale preview: if the user stops (or switches) while a /api/tts
+  // request is still in flight, the resolved audio must not play.
+  const previewSeqRef = useRef(0);
 
   useEffect(() => {
     setTheme(document.documentElement.classList.contains('dark') ? 'dark' : 'light');
@@ -25,12 +31,48 @@ export default function SettingsPage() {
         const name = LANGS.find((l) => l.code === saved)?.name;
         if (name) setLang(name);
       }
+      const v = localStorage.getItem('bridge-voice');
+      if (v && VOICES.includes(v)) setVoice(v);
     } catch {}
     fetch('/api/family-members')
       .then((r) => r.json())
       .then((d: FamilyMember[]) => setFamily(Array.isArray(d) ? d : []))
       .catch(() => {});
+    return () => stopSpeech();
   }, []);
+
+  // Preview a voice: speak a short, localized sample line through it. Tapping
+  // the same voice stops it; tapping a different voice switches directly.
+  const previewVoice = async (v: string) => {
+    if (previewing) {
+      // Stop whatever is playing; if it's a different voice, start the new one.
+      stopSpeech();
+      setPreviewing(null);
+      previewSeqRef.current++; // invalidate any in-flight preview
+      if (previewing === v) return;
+    }
+    setPreviewErr('');
+    setPreviewing(v);
+    const mySeq = ++previewSeqRef.current;
+    try {
+      const sample = translate(uiLang, 'greeting.morning');
+      const res = await fetch('/api/tts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: sample, target_language_code: grandmaLangCode(), speaker: v }),
+      });
+      const data = await res.json();
+      if (mySeq !== previewSeqRef.current) return; // superseded — don't play
+      if (!res.ok || !data.audio) throw new Error(data.error || 'TTS failed');
+      playSpeech(data.audio, () => {
+        if (previewSeqRef.current === mySeq) setPreviewing((cur) => (cur === v ? null : cur));
+      });
+    } catch {
+      if (mySeq !== previewSeqRef.current) return;
+      setPreviewing(null);
+      setPreviewErr(translate(uiLang, 'messages.ttsError'));
+    }
+  };
 
   const toggleTheme = (next: 'light' | 'dark') => {
     setTheme(next);
@@ -76,25 +118,54 @@ export default function SettingsPage() {
         </div>
       </section>
 
-      {/* Voice */}
+      {/* Voice — 37 real Sarvam voices. A voice is not tied to a language, so
+          the list shows plain names (no language tags) and every voice speaks
+          grandma's selected language. */}
       <section className="rounded-3xl border border-line bg-card p-4 shadow-soft">
-        <p className="mb-3 flex items-center gap-3 text-sm font-semibold text-ink">
-          <Volume2 size={18} className="text-accent" /> <T k="settings.voice" />
-        </p>
-        <div className="space-y-2">
+        <div className="mb-1 flex items-center justify-between">
+          <p className="flex items-center gap-3 text-sm font-semibold text-ink">
+            <Volume2 size={18} className="text-accent" /> <T k="settings.voice" />
+          </p>
+          <span className="rounded-full bg-card-soft px-2.5 py-0.5 text-[11px] font-semibold text-ink-muted">
+            {VOICES.length} voices
+          </span>
+        </div>
+        <p className="mb-3 text-xs text-ink-muted">{translate(uiLang, 'settings.voiceHint')}</p>
+        <div className="max-h-72 space-y-1.5 overflow-y-auto pr-1">
           {VOICES.map((v) => (
-            <button
+            <div
               key={v}
-              onClick={() => setVoice(v)}
-              className={`flex w-full items-center justify-between rounded-2xl px-4 py-3 text-sm transition-colors ${
+              className={`flex items-center gap-3 rounded-2xl px-4 py-2.5 text-sm transition-colors ${
                 voice === v ? 'bg-brand-soft text-brand font-semibold' : 'bg-card-soft text-ink hover:bg-brand-soft'
               }`}
             >
-              {v}
-              {voice === v && <span className="h-2 w-2 rounded-full bg-brand" />}
-            </button>
+              <button
+                onClick={() => previewVoice(v)}
+                aria-label={`${translate(uiLang, 'settings.voicePreview')}: ${voiceLabel(v)}`}
+                className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors ${
+                  previewing === v ? 'bg-terra text-white' : 'bg-white/70 text-brand hover:bg-brand hover:text-white'
+                }`}
+              >
+                {previewing === v ? <Square size={13} /> : <Play size={13} className="ml-0.5" />}
+              </button>
+              <button
+                onClick={() => {
+                  setVoice(v);
+                  try {
+                    localStorage.setItem('bridge-voice', v);
+                  } catch {}
+                }}
+                className="flex-1 text-left capitalize"
+              >
+                {voiceLabel(v)}
+              </button>
+              {voice === v && <span className="h-2 w-2 shrink-0 rounded-full bg-brand" />}
+            </div>
           ))}
         </div>
+        {previewErr && (
+          <p className="mt-2 rounded-xl bg-terra-soft px-3 py-1.5 text-[11px] font-semibold text-terra">{previewErr}</p>
+        )}
       </section>
 
       {/* Family members */}

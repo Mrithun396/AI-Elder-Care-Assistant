@@ -15,8 +15,51 @@ type FamilyMember = { id: string; name: string; relation: string };
 
 type ReplyStatus = 'idle' | 'translating' | 'sending' | 'sent';
 
+type Alert = {
+  id: string;
+  sender_name: string;
+  message: string;
+  location?: string;
+  created_at?: string;
+};
+
+type Checkin = {
+  id: string;
+  metric: string;
+  value: string;
+  unit?: string;
+  note?: string;
+  flagged?: boolean;
+  created_at?: string;
+};
+
+type Memory = {
+  id: string;
+  content: string;
+  category?: string;
+  created_at?: string;
+};
+
+const CHECKIN_META: Record<string, { label: string; icon: string }> = {
+  sugar: { label: 'Sugar', icon: '🩸' },
+  bp: { label: 'Blood Pressure', icon: '🫀' },
+  steps: { label: 'Steps', icon: '👣' },
+  water: { label: 'Water', icon: '💧' },
+  mood: { label: 'Mood', icon: '😊' },
+};
+
+const CATEGORY_META: Record<string, { label: string; icon: string }> = {
+  hospital: { label: 'Hospital', icon: '🏥' },
+  date: { label: 'Important date', icon: '📅' },
+  todo: { label: 'To-do', icon: '📝' },
+  note: { label: 'Note', icon: '💭' },
+};
+
 export default function FamilyDashboard() {
   const [messages, setMessages] = useState<Message[]>([]);
+  const [alert, setAlert] = useState<Alert | null>(null);
+  const [checkins, setCheckins] = useState<Checkin[]>([]);
+  const [memories, setMemories] = useState<Memory[]>([]);
   const [family, setFamily] = useState<FamilyMember[]>([]);
   const [senderId, setSenderId] = useState('');
   const [grandmaLang, setGrandmaLang] = useState('ta-IN');
@@ -39,8 +82,53 @@ export default function FamilyDashboard() {
     }
   }, []);
 
+  const loadAlert = useCallback(async () => {
+    try {
+      const res = await fetch('/api/emergency');
+      if (!res.ok) return;
+      const data = await res.json();
+      setAlert(data && data.status === 'active' ? data : null);
+    } catch {
+      // banner stays as-is on transient errors
+    }
+  }, []);
+
+  const loadHealth = useCallback(async () => {
+    try {
+      const res = await fetch('/api/health-checkins');
+      if (!res.ok) return;
+      const data = await res.json();
+      if (Array.isArray(data)) setCheckins(data);
+    } catch {
+      // keep last known state on transient errors
+    }
+  }, []);
+
+  const loadMemories = useCallback(async () => {
+    try {
+      const res = await fetch('/api/memories');
+      if (!res.ok) return;
+      const data = await res.json();
+      if (Array.isArray(data)) setMemories(data);
+    } catch {
+      // keep last known state on transient errors
+    }
+  }, []);
+
+  const deleteMemory = async (id: string) => {
+    try {
+      await fetch(`/api/memories?id=${id}`, { method: 'DELETE' });
+      setMemories((m) => m.filter((x) => x.id !== id));
+    } catch {
+      // best-effort
+    }
+  };
+
   useEffect(() => {
     load();
+    loadAlert();
+    loadHealth();
+    loadMemories();
     fetch('/api/family-members')
       .then((r) => r.json())
       .then((d: FamilyMember[]) => {
@@ -48,9 +136,23 @@ export default function FamilyDashboard() {
         if (Array.isArray(d) && d.length > 0) setSenderId(d[0].id);
       })
       .catch(() => {});
-    const id = setInterval(load, 2500);
+    const id = setInterval(() => {
+      load();
+      loadAlert();
+      loadHealth();
+      loadMemories();
+    }, 2500);
     return () => clearInterval(id);
-  }, [load]);
+  }, [load, loadAlert, loadHealth, loadMemories]);
+
+  const resolveAlert = async () => {
+    try {
+      await fetch('/api/emergency', { method: 'DELETE' });
+    } catch {
+      // best-effort
+    }
+    setAlert(null);
+  };
 
   const sendReply = async () => {
     const text = replyText.trim();
@@ -108,6 +210,58 @@ export default function FamilyDashboard() {
       fontFamily: 'var(--font-geist-sans), var(--font-tamil), -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif',
     }}>
       <div style={{ maxWidth: 640, margin: '0 auto' }}>
+        {alert && (
+          <div
+            role="alert"
+            style={{
+              background: 'linear-gradient(135deg, #C1502E, #A93E1F)',
+              color: 'white', borderRadius: 20, padding: '16px 18px', marginBottom: 20,
+              boxShadow: '0 10px 30px rgba(193,80,46,0.45)',
+              animation: 'alert-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) both',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+                <span style={{
+                  width: 12, height: 12, borderRadius: '50%', background: '#FFD9C4', flexShrink: 0,
+                  animation: 'live-pulse 1s ease-in-out infinite',
+                }} />
+                <div style={{ minWidth: 0 }}>
+                  <p style={{ margin: 0, fontSize: 13, fontWeight: 800, letterSpacing: '0.03em', textTransform: 'uppercase' }}>
+                    🚨 Emergency — {alert.sender_name}
+                  </p>
+                  <p style={{ margin: '2px 0 0', fontSize: 14, fontWeight: 600 }}>
+                    {alert.message}{alert.created_at ? ` · ${formatTime(alert.created_at)}` : ''}
+                  </p>
+                  {alert.location && (
+                    <a
+                      href={alert.location}
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 8,
+                        background: 'rgba(255,255,255,0.16)', color: 'white',
+                        border: '1px solid rgba(255,255,255,0.35)', borderRadius: 100,
+                        padding: '6px 14px', fontSize: 12, fontWeight: 700, textDecoration: 'none',
+                      }}
+                    >
+                      📍 View location
+                    </a>
+                  )}
+                </div>
+              </div>
+              <button
+                onClick={resolveAlert}
+                style={{
+                  flexShrink: 0, background: 'rgba(255,255,255,0.16)', color: 'white', border: '1px solid rgba(255,255,255,0.35)',
+                  borderRadius: 100, padding: '8px 16px', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                }}
+              >
+                All clear ✓
+              </button>
+            </div>
+          </div>
+        )}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
           <h1 style={{ fontSize: 24, fontWeight: 700, color: '#223A5E', margin: 0 }}>Family Dashboard</h1>
           <span style={{
@@ -195,6 +349,140 @@ export default function FamilyDashboard() {
           </p>
         </div>
 
+        {/* Abnormal readings — flagged automatically when out of safe range */}
+        {checkins.some((c) => c.flagged) && (
+          <div style={{
+            background: '#FDF1EC', border: '1px solid rgba(193,80,46,0.35)',
+            borderRadius: 20, padding: 18, marginBottom: 20,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+              <span style={{ fontSize: 16 }}>⚠️</span>
+              <h2 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#A93E1F' }}>
+                Readings need attention
+              </h2>
+              <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 700, color: '#A93E1F', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                {checkins.filter((c) => c.flagged).length} flagged
+              </span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {checkins.filter((c) => c.flagged).slice(0, 5).map((c) => {
+                const meta = CHECKIN_META[c.metric] || { label: c.metric, icon: '📋' };
+                return (
+                  <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span style={{ fontSize: 16 }}>{meta.icon}</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: '#5B5347' }}>{meta.label}</p>
+                      {c.note && (
+                        <p style={{ margin: 0, fontSize: 11, color: '#8A8175' }}>
+                          {c.note.length > 60 ? `${c.note.slice(0, 57)}…` : c.note}
+                        </p>
+                      )}
+                    </div>
+                    <span style={{ fontSize: 15, fontWeight: 800, color: '#C1502E' }}>
+                      {c.value}{c.unit ? ` ${c.unit}` : ''}
+                    </span>
+                    <span style={{ fontSize: 11, color: '#8A8175', minWidth: 44, textAlign: 'right' }}>
+                      {formatTime(c.created_at)}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Health updates from grandma */}
+        <div style={{
+          background: '#FFFFFF', borderRadius: 20, border: '1px solid rgba(43,38,32,0.10)',
+          boxShadow: '0 6px 20px rgba(34,58,94,0.08)', padding: 18, marginBottom: 20,
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+            <span style={{ fontSize: 16 }}>🩺</span>
+            <h2 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#223A5E' }}>Health Updates</h2>
+            <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 700, color: '#6E8F6B', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#6E8F6B', animation: 'live-pulse 1.6s ease-in-out infinite' }} />
+              Live
+            </span>
+          </div>
+          {checkins.length === 0 ? (
+            <p style={{ margin: 0, fontSize: 13, color: '#8A8175' }}>
+              No health readings yet — grandma can say her sugar, blood pressure or steps to the AI Companion.
+            </p>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {/* Latest reading per metric (checkins are newest-first) */}
+              {Object.values(
+                checkins.reduce<Record<string, Checkin>>((acc, c) => {
+                  if (!acc[c.metric]) acc[c.metric] = c;
+                  return acc;
+                }, {})
+              ).map((c) => {
+                const meta = CHECKIN_META[c.metric] || { label: c.metric, icon: '📋' };
+                return (
+                  <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span style={{ fontSize: 16 }}>{meta.icon}</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: '#5B5347' }}>{meta.label}</p>
+                      {c.note && (
+                        <p style={{ margin: 0, fontSize: 11, color: '#8A8175' }}>
+                          {c.note.length > 80 ? `${c.note.slice(0, 77)}…` : c.note}
+                        </p>
+                      )}
+                    </div>
+                    <span style={{ fontSize: 15, fontWeight: 700, color: c.flagged ? '#C1502E' : '#2B2620' }}>
+                      {c.flagged ? '⚠ ' : ''}{c.value}{c.unit ? ` ${c.unit}` : ''}
+                    </span>
+                    <span style={{ fontSize: 11, color: '#8A8175', minWidth: 44, textAlign: 'right' }}>
+                      {formatTime(c.created_at)}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Grandma's memory notes */}
+        <div style={{
+          background: '#FFFFFF', borderRadius: 20, border: '1px solid rgba(43,38,32,0.10)',
+          boxShadow: '0 6px 20px rgba(34,58,94,0.08)', padding: 18, marginBottom: 20,
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+            <span style={{ fontSize: 16 }}>🧠</span>
+            <h2 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#223A5E' }}>Grandma's Memory</h2>
+          </div>
+          {memories.length === 0 ? (
+            <p style={{ margin: 0, fontSize: 13, color: '#8A8175' }}>
+              Nothing saved yet — grandma can ask the AI Companion to remember dates, appointments or to-dos.
+            </p>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {memories.slice(0, 6).map((m) => {
+                const meta = CATEGORY_META[m.category || 'note'] || CATEGORY_META.note;
+                return (
+                  <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span style={{ fontSize: 16 }}>{meta.icon}</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: '#5B5347' }}>{meta.label}</p>
+                      <p style={{ margin: 0, fontSize: 14, color: '#2B2620' }}>{m.content}</p>
+                    </div>
+                    <button
+                      onClick={() => deleteMemory(m.id)}
+                      title="Delete"
+                      style={{
+                        background: 'none', border: 'none', cursor: 'pointer', fontSize: 14,
+                        color: '#8A8175', padding: 4, borderRadius: 8,
+                      }}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
         {error && (
           <p style={{ color: '#C1502E', fontSize: 13, marginBottom: 16, fontWeight: 600 }}>{error}</p>
         )}
@@ -261,6 +549,10 @@ export default function FamilyDashboard() {
         @keyframes live-pulse {
           0%, 100% { opacity: 1; }
           50% { opacity: 0.3; }
+        }
+        @keyframes alert-in {
+          from { opacity: 0; transform: translateY(-14px) scale(0.98); }
+          to { opacity: 1; transform: translateY(0) scale(1); }
         }
       `}</style>
     </div>
