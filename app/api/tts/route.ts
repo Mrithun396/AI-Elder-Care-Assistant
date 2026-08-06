@@ -5,6 +5,17 @@ export const runtime = 'nodejs';
 // fixed scripted replies) skip the ~1-2s Sarvam TTS call entirely.
 const ttsCache = new Map<string, string>();
 
+// Sarvam renders line breaks as natural pauses in the audio — insert a break
+// after each sentence-ending punctuation mark so the voice breathes at stops
+// instead of rushing from sentence to sentence. Decimals (12.5) and numbers
+// are never split because no whitespace follows the period in those cases.
+function spaceOutText(text: string): string {
+  return text
+    .replace(/([.!?।])(\s+)/g, (m, p, ws) => `${p}\n${ws}`)
+    .replace(/\n\s+/g, '\n')
+    .trim();
+}
+
 export async function POST(req: NextRequest) {
   try {
     const {
@@ -12,6 +23,8 @@ export async function POST(req: NextRequest) {
       target_language_code = 'ta-IN',
       speaker = 'ishita',
       model = 'bulbul:v3',
+      pace = 0.85, // 0.5–2.0 — slower = calmer, more deliberate read for grandma
+      temperature = 1.0, // 0.01–2.0 — higher = warmer, more expressive prosody
       speech_sample_rate = '24000',
       output_audio_codec = 'wav',
     } = await req.json();
@@ -19,7 +32,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No text to speak' }, { status: 400 });
     }
 
-    const cacheKey = `${target_language_code}|${speaker}|${model}|${text.trim()}`;
+    const clean = spaceOutText(text.trim());
+    const paceN = Math.min(2, Math.max(0.5, Number(pace) || 0.85));
+    const tempN = Math.min(2, Math.max(0.01, Number(temperature) || 1.0));
+
+    const cacheKey = `${target_language_code}|${speaker}|${model}|${paceN}|${tempN}|${clean}`;
     const cached = ttsCache.get(cacheKey);
     if (cached) return NextResponse.json({ audio: cached });
 
@@ -30,10 +47,12 @@ export async function POST(req: NextRequest) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        text: text.trim(),
+        text: clean,
         target_language_code,
         speaker,
         model,
+        pace: paceN,
+        temperature: tempN,
         speech_sample_rate,
         output_audio_codec,
       }),

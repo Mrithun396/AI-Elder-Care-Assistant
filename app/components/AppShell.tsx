@@ -17,12 +17,12 @@ import MedicationReminder from './MedicationReminder';
 
 const NAV = [
   { href: '/', label: 'nav.home', icon: Home, short: 'nav.home' },
-  { href: '/messages', label: 'nav.messages', icon: MessageCircle, short: 'nav.messages' },
+  { href: '/messages', label: 'nav.messages', icon: MessageCircle, short: 'short.messages' },
   { href: '/companion', label: 'nav.companion', icon: Sparkles, short: 'short.companion' },
   { href: '/medicines', label: 'nav.medicines', icon: Pill, short: 'short.medicines' },
   { href: '/health', label: 'nav.health', icon: HeartPulse, short: 'short.health' },
-  { href: '/emergency', label: 'nav.emergency', icon: Siren, short: 'nav.emergency', danger: true },
-  { href: '/settings', label: 'nav.settings', icon: Settings, short: 'nav.settings' },
+  { href: '/emergency', label: 'nav.emergency', icon: Siren, short: 'short.emergency', danger: true },
+  { href: '/settings', label: 'nav.settings', icon: Settings, short: 'short.settings' },
 ];
 
 function NavLink({
@@ -52,10 +52,11 @@ function NavLink({
     return (
       <Link
         href={href}
-        className={`flex flex-col items-center justify-center gap-1 rounded-2xl px-1 py-2 text-[10px] transition-colors ${cls}`}
+        className={`flex min-w-0 flex-col items-center justify-center gap-1 rounded-2xl px-1 py-2 text-[9px] leading-tight transition-colors ${cls}`}
       >
         <Icon size={20} className={iconColor} strokeWidth={active ? 2.4 : 2} />
-        <span className="truncate">{translate(lang, short)}</span>
+        {/* min-w-0 + w-full + truncate keep long Indic labels inside their cell */}
+        <span className="block w-full truncate text-center">{translate(lang, short)}</span>
       </Link>
     );
   }

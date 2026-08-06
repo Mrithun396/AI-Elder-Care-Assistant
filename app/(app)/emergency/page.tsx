@@ -16,14 +16,45 @@ const CONTACTS = [
 // hand-picked voices take a while to read it, hence 10s.
 const COUNTDOWN_SECONDS = 10;
 
+// The SOS voice lines are persisted per device in localStorage (keyed by
+// language + voice) because the server's in-memory TTS cache dies on Netlify's
+// serverless cold starts — without this, every press re-pays the full TTS
+// latency and the countdown announcement starts ~5s late.
+const SOS_AUDIO_KEY = 'bridge-sos-audio-v1';
+
+function readSosAudio(line: 'countdown' | 'sent'): { lang: string; voice: string; audio: string } | null {
+  try {
+    const raw = localStorage.getItem(`${SOS_AUDIO_KEY}:${line}`);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveSosAudio(line: 'countdown' | 'sent', lang: string, voice: string, audio: string) {
+  try {
+    localStorage.setItem(`${SOS_AUDIO_KEY}:${line}`, JSON.stringify({ lang, voice, audio }));
+  } catch {
+    // storage full/blocked — the in-flight fetch is still used this press
+  }
+}
+
 export default function EmergencyPage() {
   const lang = useLang();
   const [phase, setPhase] = useState<'idle' | 'counting' | 'sent'>('idle');
   const [countdown, setCountdown] = useState(COUNTDOWN_SECONDS);
   const [error, setError] = useState('');
+  const [preparing, setPreparing] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const locationRef = useRef<string | null>(null);
   const speakingRef = useRef(false);
+  // Set while an SOS is arming/counting; the cancel handler flips it off so a
+  // late-arriving voice fetch can't start a countdown (and fire the alert)
+  // after grandma already canceled.
+  const armedRef = useRef(false);
+  // Dedupes concurrent TTS fetches for the same voice line (e.g. the page-load
+  // warm and an early SOS press both requesting the countdown audio).
+  const inflightSosRef = useRef<Map<string, Promise<string | null>>>(new Map());
   // `queuedRef` holds a line that arrived while another was still speaking.
   const queuedRef = useRef<{ text: string; cached?: string | null } | null>(null);
 
@@ -156,6 +187,45 @@ export default function EmergencyPage() {
     }
   };
 
+  // Fetch a SOS voice line, reusing the localStorage copy when the language
+  // and voice still match. Returns null on any failure (caller falls back).
+  // Concurrent requests for the same line share one in-flight promise.
+  const fetchSosAudio = async (
+    line: 'countdown' | 'sent',
+    text: string,
+    target: string,
+    voice: string
+  ): Promise<string | null> => {
+    const cached = readSosAudio(line);
+    if (cached && cached.lang === target && cached.voice === voice) return cached.audio;
+    const key = `${line}:${target}:${voice}`;
+    const existing = inflightSosRef.current.get(key);
+    if (existing) return existing;
+    const p = (async () => {
+      try {
+        const res = await fetch('/api/tts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text, target_language_code: target, speaker: voice }),
+        });
+        const data = await res.json();
+        if (res.ok && data.audio) {
+          saveSosAudio(line, target, voice, data.audio);
+          return data.audio;
+        }
+        return null;
+      } catch {
+        return null;
+      }
+    })();
+    inflightSosRef.current.set(key, p);
+    try {
+      return await p;
+    } finally {
+      inflightSosRef.current.delete(key);
+    }
+  };
+
   // Best-effort location share: attached to the alert as a Google Maps link.
   const grabLocation = () => {
     if (!('geolocation' in navigator)) return;
@@ -169,18 +239,41 @@ export default function EmergencyPage() {
   };
 
   // Capture the location as soon as the page opens so it is ready when SOS is
-  // pressed. (Voice lines are generated on demand — no API calls on load.)
+  // pressed. Also warm the countdown line's audio once per device+language
+  // (persisted in localStorage) so the very first SOS press is instant too —
+  // the warm fetch costs exactly one TTS call, ever, per device.
   useEffect(() => {
     grabLocation();
+    const target = grandmaLangCode();
+    const voice = grandmaVoice();
+    const cached = readSosAudio('countdown');
+    if (cached?.lang !== target || cached.voice !== voice) {
+      fetchSosAudio('countdown', fmt(lang, 'emergency.voiceCountdown', { n: COUNTDOWN_SECONDS }), target, voice);
+    }
   }, [lang]);
 
-  const trigger = () => {
+  const trigger = async () => {
     if (phase !== 'idle') return;
+    armedRef.current = true;
     setError('');
     setPhase('counting');
     setCountdown(COUNTDOWN_SECONDS);
     grabLocation();
-    speak(fmt(lang, 'emergency.voiceCountdown', { n: COUNTDOWN_SECONDS }));
+    const target = grandmaLangCode();
+    const voice = grandmaVoice();
+    const countdownText = fmt(lang, 'emergency.voiceCountdown', { n: COUNTDOWN_SECONDS });
+    // Prefer the persisted audio (instant). If it isn't ready yet — e.g. SOS
+    // pressed before the page-load warm finished — wait for the fetch so the
+    // full announcement plays from the start of the countdown. If TTS is
+    // down, fall back to the browser voice and count down anyway.
+    setPreparing(true);
+    const audio = await fetchSosAudio('countdown', countdownText, target, voice);
+    setPreparing(false);
+    // Grandma may have canceled while the voice was preparing — then the
+    // countdown must NOT start (and the alert must NOT fire).
+    if (!armedRef.current) return;
+    if (audio) playSpeech(audio);
+    else speak(countdownText);
     timerRef.current = setInterval(() => {
       setCountdown((c) => {
         if (c <= 1) {
@@ -206,7 +299,13 @@ export default function EmergencyPage() {
       });
       if (!res.ok) throw new Error('failed');
       setPhase('sent');
-      speak(translate(lang, 'emergency.voiceSent'));
+      // Cache the confirmation line too, so repeat SOS runs stay instant.
+      const sentText = translate(lang, 'emergency.voiceSent');
+      const target = grandmaLangCode();
+      const voice = grandmaVoice();
+      const audio = await fetchSosAudio('sent', sentText, target, voice);
+      if (audio) playSpeech(audio);
+      else speak(sentText);
     } catch {
       setPhase('idle');
       setError(translate(lang, 'emergency.alertError'));
@@ -249,6 +348,7 @@ export default function EmergencyPage() {
           <div className="text-center">
             <button
               onClick={() => {
+                armedRef.current = false; // a preparing fetch must not re-arm
                 cleanup();
                 queuedRef.current = null; // don't speak anything still queued
                 stopSpeech(); // cut the countdown announcement
@@ -264,7 +364,9 @@ export default function EmergencyPage() {
             <p className="mt-6 text-base font-bold text-ink">
               <T k="emergency.calling" />
             </p>
-            <p className="text-xs font-semibold text-terra">{translate(lang, 'emergency.cancel')}</p>
+            <p className="text-xs font-semibold text-terra">
+              {preparing ? translate(lang, 'emergency.preparing') : translate(lang, 'emergency.cancel')}
+            </p>
           </div>
         )}
 
