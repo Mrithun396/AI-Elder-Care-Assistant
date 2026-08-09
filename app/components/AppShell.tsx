@@ -1,4 +1,5 @@
 'use client';
+import { useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
@@ -73,13 +74,20 @@ function NavLink({
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const mainRef = useRef<HTMLElement | null>(null);
   const isActive = (href: string) => (href === '/' ? pathname === '/' : pathname.startsWith(href));
+
+  // The app shell scrolls its own <main> (the body never scrolls), so reset the
+  // scroll position when navigating between tabs.
+  useEffect(() => {
+    mainRef.current?.scrollTo({ top: 0 });
+  }, [pathname]);
 
   return (
     <LangProvider>
-    <div className="min-h-screen flex">
+    <div className="flex h-dvh overflow-hidden">
       {/* Desktop sidebar */}
-      <aside className="hidden lg:flex flex-col fixed inset-y-0 left-0 w-64 glass border-r border-line z-40">
+      <aside className="hidden lg:flex flex-col w-64 glass border-r border-line shrink-0">
         <div className="flex items-center gap-3 px-6 py-6">
           <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-brand to-accent text-white shadow-soft">
             <HeartHandshake size={20} />
@@ -107,29 +115,34 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
 
-      {/* Mobile top bar */}
-      <header className="lg:hidden fixed top-0 inset-x-0 z-40 glass border-b border-line">
-        <div className="flex items-center gap-3 px-4 py-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-brand to-accent text-white">
-            <HeartHandshake size={18} />
+      {/* Mobile + content column */}
+      <div className="flex min-w-0 flex-1 flex-col">
+        {/* Mobile top bar */}
+        <header className="lg:hidden shrink-0 glass border-b border-line">
+          <div className="flex items-center gap-3 px-4 py-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-brand to-accent text-white">
+              <HeartHandshake size={18} />
+            </div>
+            <p className="font-bold text-ink">Bridge</p>
           </div>
-          <p className="font-bold text-ink">Bridge</p>
-        </div>
-      </header>
+        </header>
 
-      {/* Main content */}
-      <main className="flex-1 lg:pl-64 pt-14 lg:pt-0 pb-20 lg:pb-0">
-        <div className="mx-auto max-w-5xl px-4 sm:px-6 py-6 lg:py-10">{children}</div>
-      </main>
+        {/* Main content — the app's only scroll container. Scrolling here (not
+            the body) keeps the browser chrome fixed, so the bottom nav never
+            slides away on mobile. */}
+        <main ref={mainRef} className="min-w-0 flex-1 overflow-y-auto overscroll-contain">
+          <div className="mx-auto max-w-5xl px-4 sm:px-6 py-6 lg:py-10 pb-14 lg:pb-10">{children}</div>
+        </main>
 
-      {/* Mobile bottom nav */}
-      <nav className="lg:hidden fixed bottom-0 inset-x-0 z-40 glass border-t border-line">
-        <div className="grid grid-cols-7 px-2 py-1.5">
-          {NAV.map((n) => (
-            <NavLink key={n.href} {...n} active={isActive(n.href)} mobile />
-          ))}
-        </div>
-      </nav>
+        {/* Mobile bottom nav — always visible, never scrolls away */}
+        <nav className="lg:hidden shrink-0 glass border-t border-line">
+          <div className="grid grid-cols-7 px-2 py-1.5">
+            {NAV.map((n) => (
+              <NavLink key={n.href} {...n} active={isActive(n.href)} mobile />
+            ))}
+          </div>
+        </nav>
+      </div>
 
       {/* Slide-in notification when a family reply arrives */}
       <ReplyNotifier />

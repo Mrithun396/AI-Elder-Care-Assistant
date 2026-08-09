@@ -559,10 +559,13 @@ export function T({
   const en = e.en ?? k;
   const showSub = sub && lang !== 'en' && en !== main;
   return (
-    <span className={`inline-flex flex-col ${center ? 'items-center' : 'items-start'} ${className}`}>
-      <span>{main}</span>
+    // min-w-0 lets the label shrink inside flex rows (nav, buttons) instead of
+    // overflowing; break-words wraps long Indic compound words (Tamil/Telugu/
+    // Malayalam) so they never spill out of their rounded boxes on mobile.
+    <span className={`inline-flex min-w-0 flex-col ${center ? 'items-center' : 'items-start'} ${className}`}>
+      <span className="break-words">{main}</span>
       {showSub && (
-        <span className={`text-[10px] font-medium normal-case tracking-normal leading-tight text-ink-muted/70 ${subClassName}`}>
+        <span className={`break-words text-[10px] font-medium normal-case tracking-normal leading-tight text-ink-muted/70 ${subClassName}`}>
           ({en})
         </span>
       )}

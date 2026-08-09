@@ -1005,7 +1005,7 @@ export default function CompanionPage() {
             <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-soft text-brand">
               <s.icon size={18} />
             </span>
-            <T k={`comp.${s.intent}`} />
+            <T k={`comp.${s.intent}`} className="min-w-0" />
           </button>
         ))}
       </div>
@@ -1017,7 +1017,7 @@ export default function CompanionPage() {
           {turns.map((t) => (
             <div key={t.uid} className={`flex ${t.from === 'user' ? 'justify-end' : 'justify-start'}`}>
               <div
-                className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm ${
+                className={`min-w-0 max-w-[85%] break-words rounded-2xl px-4 py-2.5 text-sm ${
                   t.from === 'user' ? 'rounded-br-sm bg-accent text-white' : 'rounded-bl-sm bg-brand-soft text-ink'
                 }`}
               >

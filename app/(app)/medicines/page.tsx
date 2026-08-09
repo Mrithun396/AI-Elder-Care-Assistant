@@ -264,8 +264,8 @@ export default function MedicinesPage() {
 
   return (
     <div className="space-y-8">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
+        <div className="min-w-0">
           <h1 className="text-2xl font-bold text-ink"><T k="med.title" /></h1>
           <p className="text-sm text-ink-muted">
             {fmt(lang, 'med.remaining', {
@@ -275,15 +275,15 @@ export default function MedicinesPage() {
           </p>
         </div>
         {now && nextDose && nextAt ? (
-          <div className="flex items-center gap-3 rounded-3xl border border-line bg-card px-5 py-3 shadow-soft">
-            <BellRing size={18} className="text-accent" />
-            <div>
+          <div className="flex min-w-0 max-w-full flex-wrap items-center gap-x-3 gap-y-1 rounded-3xl border border-line bg-card px-5 py-3 shadow-soft">
+            <BellRing size={18} className="shrink-0 text-accent" />
+            <div className="min-w-0">
               <p className="text-[10px] font-semibold uppercase tracking-wider text-ink-muted">
                 <T k="med.nextDose" />
               </p>
               <p className="text-lg font-bold tabular-nums text-ink">{fmtCountdown(nextAt.getTime() - now.getTime())}</p>
             </div>
-            <p className="text-sm font-semibold text-ink">{nextDose.name} · {fmtTime12(nextDose.time)}</p>
+            <p className="min-w-0 break-words text-sm font-semibold text-ink">{nextDose.name} · {fmtTime12(nextDose.time)}</p>
           </div>
         ) : (
           <div className="flex items-center gap-2 rounded-3xl border border-line bg-sage-soft px-5 py-3 text-sm font-bold text-sage">
