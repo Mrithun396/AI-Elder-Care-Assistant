@@ -992,8 +992,10 @@ export default function CompanionPage() {
         <p className="rounded-2xl bg-terra-soft px-4 py-2 text-xs font-semibold text-terra">{error}</p>
       )}
 
-      {/* Suggestions */}
-      <div className="grid grid-cols-2 gap-3">
+      {/* Suggestions — full-width pills on narrow phones (a half-width cell
+          makes the Tamil label + English sub-line stack into a tall box);
+          back to 2 columns once there's room. */}
+      <div className="grid grid-cols-1 min-[400px]:grid-cols-2 gap-3">
         {SUGGESTIONS.map((s, i) => (
           <button
             key={s.intent}
