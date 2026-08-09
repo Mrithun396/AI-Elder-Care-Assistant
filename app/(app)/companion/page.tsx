@@ -980,7 +980,26 @@ export default function CompanionPage() {
           } ${thinking ? 'opacity-60' : ''}`}
           aria-label="Talk to AI"
         >
-          {thinking ? <Sparkles size={32} className="animate-spin" /> : <Mic size={36} />}
+          {thinking ? (
+            /* ChatGPT-style "alive" orb: a faint ring with dots orbiting the
+               rim (the signature thinking indicator), plus a soft expanding
+               pulse so the circle feels like it's breathing. */
+            <span className="relative h-12 w-12" aria-hidden>
+              <span className="absolute inset-0 rounded-full bg-white/15 animate-ping [animation-duration:2.4s]" />
+              <span className="absolute inset-0 rounded-full border-2 border-white/40" />
+              <span className="absolute inset-0 animate-spin [animation-duration:2.4s] [animation-timing-function:linear]">
+                {[0, 120, 240].map((deg) => (
+                  <span
+                    key={deg}
+                    className="absolute left-1/2 top-1/2 h-2.5 w-2.5 -ml-[5px] -mt-[5px] rounded-full bg-white"
+                    style={{ transform: `rotate(${deg}deg) translateY(-20px)` }}
+                  />
+                ))}
+              </span>
+            </span>
+          ) : (
+            <Mic size={36} />
+          )}
         </button>
         <p className="mt-4 text-sm font-semibold text-ink">
           <T k={listening ? 'comp.listening' : thinking ? 'comp.thinking' : 'comp.tapToTalk'} />
@@ -992,10 +1011,10 @@ export default function CompanionPage() {
         <p className="rounded-2xl bg-terra-soft px-4 py-2 text-xs font-semibold text-terra">{error}</p>
       )}
 
-      {/* Suggestions — full-width pills on narrow phones (a half-width cell
-          makes the Tamil label + English sub-line stack into a tall box);
-          back to 2 columns once there's room. */}
-      <div className="grid grid-cols-1 min-[400px]:grid-cols-2 gap-3">
+      {/* Suggestions — one wide rectangle below another on phones (a half-width
+          cell makes the Tamil label + English sub-line stack into a tall box);
+          side by side only once there's real room (640px+). */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {SUGGESTIONS.map((s, i) => (
           <button
             key={s.intent}
