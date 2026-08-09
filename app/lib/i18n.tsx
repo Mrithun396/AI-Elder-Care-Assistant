@@ -560,12 +560,14 @@ export function T({
   const showSub = sub && lang !== 'en' && en !== main;
   return (
     // min-w-0 lets the label shrink inside flex rows (nav, buttons) instead of
-    // overflowing; break-words wraps long Indic compound words (Tamil/Telugu/
-    // Malayalam) so they never spill out of their rounded boxes on mobile.
+    // overflowing; w-full + break-words force the text to wrap inside the
+    // available width so long Indic compound words (Tamil/Telugu/Malayalam)
+    // never spill out of their rounded boxes on mobile. (w-full on a flex item
+    // overrides align-items:start, so the text is width-constrained.)
     <span className={`inline-flex min-w-0 flex-col ${center ? 'items-center' : 'items-start'} ${className}`}>
-      <span className="break-words">{main}</span>
+      <span className="w-full break-words">{main}</span>
       {showSub && (
-        <span className={`break-words text-[10px] font-medium normal-case tracking-normal leading-tight text-ink-muted/70 ${subClassName}`}>
+        <span className={`w-full break-words text-[10px] font-medium normal-case tracking-normal leading-tight text-ink-muted/70 ${subClassName}`}>
           ({en})
         </span>
       )}

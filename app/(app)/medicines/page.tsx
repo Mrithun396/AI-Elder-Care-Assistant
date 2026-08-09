@@ -422,7 +422,7 @@ export default function MedicinesPage() {
                       </div>
                     </div>
                   ) : (
-                    <div className="flex items-center gap-3">
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
                       <span className={`inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${colorFor(m.name)}`}>
                         <Pill size={20} />
                       </span>
@@ -433,37 +433,41 @@ export default function MedicinesPage() {
                           {isTime && !isTaken ? ' · now' : ''}
                         </p>
                       </div>
-                      <button
-                        onClick={() => speak(fmt(lang, 'med.reminder', { name: m.name }))}
-                        aria-label={translate(lang, 'med.tapToHear')}
-                        className="mr-1 hidden sm:inline-flex h-9 w-9 items-center justify-center rounded-full border border-line text-ink-muted transition-colors hover:bg-card-soft hover:text-ink"
-                      >
-                        <Volume2 size={15} />
-                      </button>
-                      <button
-                        onClick={() => startEdit(m)}
-                        aria-label={translate(lang, 'med.edit')}
-                        className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-line text-ink-muted transition-colors hover:bg-card-soft hover:text-ink"
-                      >
-                        <Pencil size={14} />
-                      </button>
-                      <button
-                        onClick={() => deleteMed(m.id, m.name)}
-                        aria-label={translate(lang, 'med.delete')}
-                        className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-line text-terra transition-colors hover:bg-terra-soft"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                      <button
-                        onClick={() => toggle(m.id)}
-                        aria-pressed={isTaken}
-                        className={`flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
-                          isTaken ? 'bg-sage-soft text-sage' : 'bg-accent-soft text-accent hover:bg-accent hover:text-white'
-                        }`}
-                      >
-                        {isTaken ? <CheckCircle2 size={13} /> : <Clock size={13} />}
-                        {isTaken ? translate(lang, 'med.taken') : translate(lang, 'med.pending')}
-                      </button>
+                      {/* Actions wrap to their own row on mobile so the name and
+                          timings keep full width; they join the row on sm+. */}
+                      <div className="flex w-full items-center gap-2 sm:w-auto">
+                        <button
+                          onClick={() => speak(fmt(lang, 'med.reminder', { name: m.name }))}
+                          aria-label={translate(lang, 'med.tapToHear')}
+                          className="hidden sm:inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-line text-ink-muted transition-colors hover:bg-card-soft hover:text-ink"
+                        >
+                          <Volume2 size={15} />
+                        </button>
+                        <button
+                          onClick={() => startEdit(m)}
+                          aria-label={translate(lang, 'med.edit')}
+                          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-line text-ink-muted transition-colors hover:bg-card-soft hover:text-ink"
+                        >
+                          <Pencil size={14} />
+                        </button>
+                        <button
+                          onClick={() => deleteMed(m.id, m.name)}
+                          aria-label={translate(lang, 'med.delete')}
+                          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-line text-terra transition-colors hover:bg-terra-soft"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                        <button
+                          onClick={() => toggle(m.id)}
+                          aria-pressed={isTaken}
+                          className={`flex flex-1 items-center justify-center gap-1 rounded-full px-3 py-2 text-xs font-semibold transition-colors sm:flex-none ${
+                            isTaken ? 'bg-sage-soft text-sage' : 'bg-accent-soft text-accent hover:bg-accent hover:text-white'
+                          }`}
+                        >
+                          {isTaken ? <CheckCircle2 size={13} /> : <Clock size={13} />}
+                          {isTaken ? translate(lang, 'med.taken') : translate(lang, 'med.pending')}
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
