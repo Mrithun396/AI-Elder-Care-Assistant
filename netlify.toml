@@ -5,6 +5,11 @@
 # on every route.
 [build]
   command = "npm run build"
+  # The Netlify Next.js runtime rejects a publish dir equal to the repo root
+  # (the new site's dashboard had it set to "/", which failed the build).
+  # netlify.toml overrides the dashboard setting; the plugin rewrites this
+  # to its own publish dir during the build anyway.
+  publish = ".next"
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
