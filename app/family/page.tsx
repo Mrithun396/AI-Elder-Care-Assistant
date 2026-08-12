@@ -57,6 +57,14 @@ const CHECKIN_META: Record<string, { label: string; icon: string }> = {
   mood: { label: 'Mood', icon: '😊' },
 };
 
+// Mood readings are stored as their key ('great'/'okay'/'unwell') — render a
+// real emoji + readable label so a mood change is obvious at a glance.
+const MOOD_LABEL: Record<string, { emoji: string; label: string }> = {
+  great: { emoji: '😊', label: 'Feeling great' },
+  okay: { emoji: '😐', label: 'Okay' },
+  unwell: { emoji: '😢', label: 'Not well' },
+};
+
 const CATEGORY_META: Record<string, { label: string; icon: string }> = {
   hospital: { label: 'Hospital', icon: '🏥' },
   date: { label: 'Important date', icon: '📅' },
@@ -528,9 +536,10 @@ export default function FamilyDashboard() {
                 }, {})
               ).map((c) => {
                 const meta = CHECKIN_META[c.metric] || { label: c.metric, icon: '📋' };
+                const mood = c.metric === 'mood' ? MOOD_LABEL[c.value] : undefined;
                 return (
                   <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <span style={{ fontSize: 16 }}>{meta.icon}</span>
+                    <span style={{ fontSize: 16 }}>{mood ? mood.emoji : meta.icon}</span>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: '#5B5347' }}>{meta.label}</p>
                       {c.note && (
@@ -540,7 +549,7 @@ export default function FamilyDashboard() {
                       )}
                     </div>
                     <span style={{ fontSize: 15, fontWeight: 700, color: c.flagged ? '#C1502E' : '#2B2620' }}>
-                      {c.flagged ? '⚠ ' : ''}{c.value}{c.unit ? ` ${c.unit}` : ''}
+                      {c.flagged ? '⚠ ' : ''}{mood ? mood.label : `${c.value}${c.unit ? ` ${c.unit}` : ''}`}
                     </span>
                     <span style={{ fontSize: 11, color: '#8A8175', minWidth: 44, textAlign: 'right' }}>
                       {formatTime(c.created_at)}

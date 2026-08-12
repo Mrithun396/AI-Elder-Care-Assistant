@@ -1082,9 +1082,11 @@ export default function CompanionPage() {
     if (DYNAMIC_INTENTS.includes(intent)) {
       // Dynamic intents (riddles, health) run the real flow, not the cache.
       handleDynamic(intent, '', mySeq);
-    } else if (gptReady) {
-      chatViaGPT(translate(lang, `comp.${intent}`), mySeq, intent);
     } else {
+      // Taps are fixed scripted actions (story/news/talk/checkin) — answer
+      // from the warm translated+TTS cache for an instant reply instead of
+      // waiting on the LLM (~10s+ on the deployed site). Open-ended speech on
+      // the mic still gets the full conversational brain.
       reply(intent, mySeq);
     }
   };

@@ -55,16 +55,38 @@ export default function SettingsPage() {
     setPreviewing(v);
     const mySeq = ++previewSeqRef.current;
     try {
-      const sample = translate(uiLang, 'greeting.morning');
-      const res = await fetch('/api/tts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: sample, target_language_code: grandmaLangCode(), speaker: v }),
-      });
-      const data = await res.json();
+      // The sample line is fixed per language, so cache the synthesized audio
+      // (per voice + language) in localStorage — the first preview still pays
+      // the TTS latency, but every later tap plays instantly.
+      const cacheKey = `bridge-preview:${grandmaLangCode()}:${v}`;
+      let audio: string | null = (() => {
+        try {
+          return localStorage.getItem(cacheKey);
+        } catch {
+          return null;
+        }
+      })();
+      if (!audio) {
+        const sample = translate(uiLang, 'greeting.morning');
+        const res = await fetch('/api/tts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: sample, target_language_code: grandmaLangCode(), speaker: v }),
+        });
+        const data = await res.json();
+        if (mySeq !== previewSeqRef.current) return; // superseded — don't play
+        if (!res.ok || !data.audio) throw new Error(data.error || 'TTS failed');
+        const fresh: string = data.audio;
+        audio = fresh;
+        try {
+          localStorage.setItem(cacheKey, fresh);
+        } catch {
+          // storage full — cache degrades gracefully, next tap re-synthesizes
+        }
+      }
       if (mySeq !== previewSeqRef.current) return; // superseded — don't play
-      if (!res.ok || !data.audio) throw new Error(data.error || 'TTS failed');
-      playSpeech(data.audio, () => {
+      if (!audio) throw new Error('TTS failed');
+      playSpeech(audio, () => {
         if (previewSeqRef.current === mySeq) setPreviewing((cur) => (cur === v ? null : cur));
       });
     } catch {
