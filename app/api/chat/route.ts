@@ -30,7 +30,7 @@ const ADDRESS: Record<string, string> = {
   'gu-IN': 'દાદી',
   'pa-IN': 'ਦਾਦੀ',
   'od-IN': 'ଜେଜେମା',
-  'en-IN': 'Paati',
+  'en-IN': 'Grandma',
 };
 
 // Which LLM drives the companion's conversations.
@@ -76,7 +76,7 @@ function buildMessages(
   context?: string
 ) {
   const langName = LANG_NAMES[target] || target;
-  const address = ADDRESS[target] || 'Paati';
+  const address = ADDRESS[target] || 'Grandma';
   // Ground the model in the real current date (India time, in grandma's
   // language) so date questions are answered correctly — without this the
   // model guesses, e.g. claiming "the 30th comes tomorrow" when today is the
@@ -98,7 +98,9 @@ function buildMessages(
     `Reply ONLY in ${langName}, matching the language of the conversation history.`,
     `Keep replies short, warm, and casual — 1 to 3 sentences, like a loving grandchild. No lists, no markdown, no emojis.`,
     `Use short, clean sentences with full stops — the reply is read aloud by a text-to-speech voice, and long run-on sentences sound rushed.`,
-    `Always address her as ${address}, never "Grandma".`,
+    address === 'Grandma'
+      ? `Always address her as ${address}.`
+      : `Always address her as ${address}, never "Grandma".`,
     `Today's exact date (in her timezone, India) is: ${todayStr}. Use this exact date for anything about today, tomorrow, or any other date — never guess, estimate, or invent dates.`,
     `Be cheerful, patient, and caring. You may tell stories, jokes, or news, or just chat warmly. Stay in character; never mention you are an AI or a model.`,
   ].join('\n');

@@ -88,7 +88,7 @@ const REPLIES: Record<string, string> = {
 // Scripted English replies keep "Grandma" as a placeholder — Sarvam leaves
 // proper nouns untranslated (seen live: "ரொம்ப நல்லா இருக்கு Grandma!"), so we
 // swap in the right affectionate term AFTER translation per language. This way
-// Tamil gets பாட்டி, Hindi gets दादी, and English gets Paati (never Grandma).
+// Tamil gets பாட்டி, Hindi gets दादी, and English gets Grandma (fully English).
 const ADDRESS: Record<string, string> = {
   'ta-IN': 'பாட்டி',
   'hi-IN': 'दादी',
@@ -100,11 +100,11 @@ const ADDRESS: Record<string, string> = {
   'gu-IN': 'દાદી',
   'pa-IN': 'ਦਾਦੀ',
   'od-IN': 'ଜେଜେମା',
-  'en-IN': 'Paati',
+  'en-IN': 'Grandma',
 };
 
 function localizeAddress(text: string, target: string): string {
-  return text.replace(/\bGrandma\b/g, ADDRESS[target] || 'Paati');
+  return text.replace(/\bGrandma\b/g, ADDRESS[target] || 'Grandma');
 }
 
 // Short yes/no replies to "shall I ask another riddle?" — the riddle flow ends
@@ -557,7 +557,7 @@ export default function CompanionPage() {
         text = trData.translated_text;
       }
       // Scripted English says "Grandma"; swap in the right term for the target
-      // language (பாட்டி / दादी / Paati…) after translation.
+      // language (பாட்டி / दादी / Grandma…) after translation.
       text = localizeAddress(text, target);
       if (mySeq !== seqRef.current) {
         setThinking(false);
@@ -609,7 +609,7 @@ export default function CompanionPage() {
       if (!res.ok) throw new Error('save failed');
       const saved = await res.json().catch(() => null);
       const bpWarn = saved?.flagged
-        ? ' That reading is outside your usual range, Paati — please rest and take care.'
+        ? ' That reading is outside your usual range, Grandma — please rest and take care.'
         : '';
       await speakDynamic(`Done, Grandma! Blood pressure ${sys} over ${dia} — recorded.${bpWarn}`, mySeq);
     } catch {
@@ -652,7 +652,7 @@ export default function CompanionPage() {
         if (!res.ok) throw new Error('save failed');
         const savedSugar = await res.json().catch(() => null);
         const sugarWarn = savedSugar?.flagged
-          ? ' That reading is outside your usual range, Paati — please take care and rest a little.'
+          ? ' That reading is outside your usual range, Grandma — please take care and rest a little.'
           : '';
         await speakDynamic(`Done, Grandma! I have recorded your sugar as ${n}. I will tell your family.${sugarWarn}`, mySeq);
       } catch {
@@ -942,7 +942,7 @@ export default function CompanionPage() {
         }
         if (no && !yes) {
           await speakDynamic(
-            'No problem, Paati! What would you like to do instead — a story, some news, or just a chat?',
+            'No problem, Grandma! What would you like to do instead — a story, some news, or just a chat?',
             mySeq
           );
           return;

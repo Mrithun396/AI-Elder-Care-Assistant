@@ -471,7 +471,7 @@ export const DICT: Record<string, Entry> = {
   'comp.you': { en: 'You', ta: 'நீங்கள்', hi: 'आप', te: 'మీరు', ml: 'നിങ്ങൾ', kn: 'ನೀವು', bn: 'আপনি', mr: 'तुम्ही', gu: 'તમે', pa: 'ਤੁਸੀਂ', od: 'ଆପଣ' },
   'comp.companion': { en: 'Companion', ta: 'துணைவர்', hi: 'साथी', te: 'సహచరుడు', ml: 'സഹായി', kn: 'ಸಹಚರ', bn: 'সহচর', mr: 'साथी', gu: 'સાથી', pa: 'ਸਾਥੀ', od: 'ସାଥୀ' },
   'comp.welcome': {
-    en: 'Vanakkam, Paati! I am your AI companion. What would you like to do today?',
+    en: 'Hello, Grandma! I am your AI companion. What would you like to do today?',
     ta: 'வணக்கம் பாட்டி! நான் உங்கள் AI துணைவர். இன்று என்ன செய்ய விரும்புகிறீர்கள்?',
     hi: 'नमस्ते, दादी! मैं आपका AI साथी हूँ। आज आप क्या करना चाहेंगी?',
     te: 'నమస్కారం, అమ్మమ్మ! నేను మీ AI సహచరుడిని. ఈరోజు మీరు ఏమి చేయాలనుకుంటున్నారు?',
