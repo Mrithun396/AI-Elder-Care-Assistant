@@ -1,0 +1,6 @@
+# Build settings committed to the repo so ANY Netlify import runs the real
+# Next.js build (Netlify auto-applies its OpenNext adapter to detected Next.js
+# projects). Without a build command, Netlify publishes the raw source files —
+# which have no index.html and 404 on every route.
+[build]
+  command = "npm run build"
