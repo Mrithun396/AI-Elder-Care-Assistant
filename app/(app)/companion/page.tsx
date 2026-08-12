@@ -219,11 +219,29 @@ const INTENTS: { intent: string; keywords: string[] }[] = [
     keywords: ['குடும்பம்', 'family', 'மகன்', 'மகள்', 'arun', 'priya', 'परिवार', 'बेटा', 'পরিবার', 'ছেলে', 'মেয়ে', 'कुटुंब', 'मुलगा', 'मुलगी', 'પરિવાર', 'દીકરો', 'દીકરી', 'ਪਰਿਵਾਰ', 'ਬੇਟਾ', 'ਬੇਟੀ', 'ପରିବାର', 'ପୁଅ', 'ଝିଅ'],
   },
   { intent: 'time', keywords: ['நேரம்', 'time', 'மணி', 'समय', 'সময়', 'বেলা', 'वेळ', 'સમય', 'ਸਮਾਂ', 'ਵੇਲਾ', 'ସମୟ'] },
+  // Kept LAST so more specific intents (sugar, bp, remember, health…) win over
+  // the broad help words ('உதவி' / 'help' / 'मदद') — e.g. "help me remember"
+  // stays a remember request, while a bare "உதவி!" or "help!" is an SOS.
+  {
+    intent: 'emergency',
+    keywords: [
+      'அவசரம்', 'உதவி', 'ஹெல்ப்', 'emergency', 'help', 'sos',
+      'आपातकाल', 'मदद', // hi
+      'అత్యవసరం', 'సహాయం', // te
+      'അടിയന്തരം', 'സഹായം', // ml
+      'ತುರ್ತು', 'ಸಹಾಯ', // kn
+      'জরুরি', 'সাহায্য', // bn
+      'आणीबाणी', 'मदत', // mr
+      'કટોકટી', 'મદદ', // gu
+      'ਐਮਰਜੈਂਸੀ', 'ਮਦਦ', // pa
+      'ଜରୁରୀ', 'ସାହାଯ୍ୟ', // od
+    ],
+  },
 ];
 
-// Intents that need real work (parse a number, save to Supabase, recall) rather
-// than a canned scripted reply.
-const DYNAMIC_INTENTS = ['sugar', 'bp', 'steps', 'remember', 'recall', 'joke'];
+// Intents that need real work (parse a number, save to Supabase, recall, fire
+// an SOS) rather than a canned scripted reply.
+const DYNAMIC_INTENTS = ['sugar', 'bp', 'steps', 'remember', 'recall', 'joke', 'emergency'];
 
 // Loose riddle-guess matching: normalizes both sides (Tamil + Latin scripts),
 // then accepts exact, substring, or shared-token matches.
@@ -621,6 +639,29 @@ export default function CompanionPage() {
   // Route the dynamic intents (health readings, steps, memory, riddles) — parse what was
   // said, persist to Supabase, then confirm aloud.
   const handleDynamic = async (intent: string, said: string, mySeq: number) => {
+    if (intent === 'emergency') {
+      // Grandma called for help aloud — create the active alert immediately so
+      // the family dashboard banner goes live, then confirm in her language.
+      try {
+        const res = await fetch('/api/emergency', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sender_name: 'Kamala',
+            message: 'Emergency! I need help.',
+          }),
+        });
+        if (!res.ok) throw new Error('save failed');
+        await speakDynamic(
+          'Help is on the way, Grandma! I have alerted your family. Stay right where you are, and I will stay with you.',
+          mySeq
+        );
+      } catch {
+        setThinking(false);
+        setError(translate(lang, 'comp.errSave'));
+      }
+      return;
+    }
     if (intent === 'joke') {
       // Native Tamil riddle (விடுகதை). The question is authored in Tamil and
       // spoken directly in Tamil, or translated on the fly for other languages.
