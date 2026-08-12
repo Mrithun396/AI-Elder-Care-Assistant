@@ -4,6 +4,7 @@ import { Mic, Sparkles, BookOpen, Newspaper, MessagesSquare, Laugh, Volume2, Cal
 import { T, translate, useLang, type LangKey } from '../../lib/i18n';
 import { grandmaLangCode, grandmaVoice } from '../../lib/langs';
 import { grabLocation, readSavedLocation } from '../../lib/location';
+import { localizeNumbers } from '../../lib/numwords';
 import { playSpeech, stopSpeech } from '../../lib/audio';
 
 type Turn = { from: 'user' | 'ai'; text: string; uid: number };
@@ -244,6 +245,13 @@ const INTENTS: { intent: string; keywords: string[] }[] = [
 // an SOS) rather than a canned scripted reply.
 const DYNAMIC_INTENTS = ['sugar', 'bp', 'steps', 'remember', 'recall', 'joke', 'emergency', 'news'];
 
+// "national news" (தேசிய செய்தி) jumps straight to country-wide headlines;
+// otherwise news is regional (GPS -> state -> Google News in her language).
+const NATIONAL_WORDS = [
+  'national', 'தேசிய', 'நாடு முழுவதும்', 'राष्ट्रीय', 'జాతీయ', 'దేశీయ',
+  'ദേശീയ', 'ರಾಷ್ಟ್ರೀಯ', 'জাতীয়', 'રાષ્ટ્રીય', 'ਰਾਸ਼ਟਰੀ', 'ଜାତୀୟ',
+];
+
 // Loose riddle-guess matching: normalizes both sides (Tamil + Latin scripts),
 // then accepts exact, substring, or shared-token matches.
 function riddleMatch(guess: string, answer: string): boolean {
@@ -455,6 +463,9 @@ export default function CompanionPage() {
   // is stashed here and the companion asks for the bottom number; the next
   // utterance (e.g. "80") completes the reading and saves it to Supabase.
   const pendingBpRef = useRef<{ sys: number; said: string } | null>(null);
+  // Set right after the regional headlines end with "would you like to hear the
+  // national news?" — the next spoken utterance is a yes/no answer to that.
+  const nationalNewsRef = useRef(false);
 
   useEffect(() => {
     return () => {
@@ -643,6 +654,44 @@ export default function CompanionPage() {
     }
   };
 
+  // Read the day's headlines aloud — regional by default (GPS -> state -> Google
+  // News in grandma's language). `national` forces country-wide headlines. The
+  // headlines come back already in grandma's language, so they are spoken as-is
+  // (no re-translation) — but bare numbers ("2026") are converted to spoken
+  // words first, because Sarvam's TTS reads digits one at a time ("2, 0, 2, 6").
+  const readNews = async (national: boolean, mySeq: number) => {
+    try {
+      const loc = readSavedLocation();
+      const langCode = grandmaLangCode();
+      const lang2 = langCode.split('-')[0] || 'ta';
+      const params = new URLSearchParams({ lang: lang2 });
+      if (!national && loc) {
+        params.set('lat', String(loc.lat));
+        params.set('lng', String(loc.lng));
+      }
+      if (national) params.set('national', '1');
+      const res = await fetch(`/api/news?${params}`);
+      const data = await res.json();
+      if (!res.ok || !Array.isArray(data.headlines) || data.headlines.length === 0) {
+        throw new Error(data.error || 'news failed');
+      }
+      const intro = translate(lang, national ? 'comp.newsNationalIntro' : 'comp.newsIntro');
+      let text = `${intro} ${data.headlines.join('. ')}.`;
+      if (!national) {
+        // End the regional report by asking if she wants the national news
+        // too — the next spoken utterance is a yes/no answer (handleStop).
+        text += ' ' + translate(lang, 'comp.newsNationalAsk');
+        nationalNewsRef.current = true;
+      }
+      await speakDynamic(localizeNumbers(text, langCode), mySeq, langCode);
+    } catch {
+      await speakDynamic(
+        'I could not fetch the news right now, Grandma. Please try again in a moment.',
+        mySeq
+      );
+    }
+  };
+
   // Route the dynamic intents (health readings, steps, memory, riddles) — parse what was
   // said, persist to Supabase, then confirm aloud.
   const handleDynamic = async (intent: string, said: string, mySeq: number) => {
@@ -670,36 +719,10 @@ export default function CompanionPage() {
       return;
     }
     if (intent === 'news') {
-      // Real today's news for grandma's region: resolve the state from her
-      // saved GPS location (or her language as fallback), fetch localized
-      // headlines, and read them aloud. The headlines come back already in
-      // grandma's language, so they are spoken directly (no re-translation).
-      try {
-        const loc = readSavedLocation();
-        const langCode = grandmaLangCode();
-        const lang2 = langCode.split('-')[0] || 'ta';
-        const params = new URLSearchParams({ lang: lang2 });
-        if (loc) {
-          params.set('lat', String(loc.lat));
-          params.set('lng', String(loc.lng));
-        }
-        const res = await fetch(`/api/news?${params}`);
-        const data = await res.json();
-        if (!res.ok || !Array.isArray(data.headlines) || data.headlines.length === 0) {
-          throw new Error(data.error || 'news failed');
-        }
-        const intro = translate(lang, 'comp.newsIntro');
-        await speakDynamic(
-          `${intro} ${data.headlines.join('. ')}.`,
-          mySeq,
-          langCode // headlines are already in grandma's language — speak as-is
-        );
-      } catch {
-        await speakDynamic(
-          'I could not fetch the news right now, Grandma. Please try again in a moment.',
-          mySeq
-        );
-      }
+      // "தேசிய செய்தி" / "national news" goes straight to country-wide
+      // headlines; otherwise it's the regional feed from her saved location.
+      const wantsNational = NATIONAL_WORDS.some((w) => said.toLowerCase().includes(w));
+      await readNews(wantsNational, mySeq);
       return;
     }
     if (intent === 'joke') {
@@ -1031,6 +1054,28 @@ export default function CompanionPage() {
       } else if (awaitingConsentRef.current) {
         awaitingConsentRef.current = false; // user moved on to a real command
       }
+      // The companion just asked "would you like to hear the national news?" —
+      // a short yes/no (ஆமாம் / வேண்டாம் / no…) answers that. Gated on
+      // intent === 'default' like the consent checks, so a real command that
+      // happens to contain a consent word wins instead.
+      if (nationalNewsRef.current && intent === 'default') {
+        nationalNewsRef.current = false; // consume the answer either way
+        const yes = CONSENT_YES.some((w) => lower.includes(w));
+        const no = CONSENT_NO.some((w) => lower.includes(w));
+        if (yes && !no) {
+          await readNews(true, mySeq);
+          return;
+        }
+        if (no && !yes) {
+          await speakDynamic(
+            'Okay, Grandma! Let me know if you would like to hear the news anytime.',
+            mySeq
+          );
+          return;
+        }
+      } else if (nationalNewsRef.current) {
+        nationalNewsRef.current = false; // user moved on to a real command
+      }
       // Asking for the answer to a riddle that was already revealed?
       // "எனக்கு அதோட பதில் சொல்லு" resolves to intent 'default' (after the
       // 'சொல்லு' story-keyword removal), so this is caught before the generic
@@ -1154,6 +1199,7 @@ export default function CompanionPage() {
     setError('');
     awaitingConsentRef.current = false; // a tap is a fresh command, not a riddle yes/no
     pendingBpRef.current = null; // a tap is a fresh command, not a BP completion
+    nationalNewsRef.current = false; // a tap is a fresh command, not a news yes/no
     setTurns((t) => [
       ...t,
       { from: 'user', text: translate(lang, `comp.${intent}`), uid: nextUid() },

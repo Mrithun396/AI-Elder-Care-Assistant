@@ -60,10 +60,17 @@ export async function GET(req: NextRequest) {
     const lat = parseFloat(sp.get('lat') || '');
     const lng = parseFloat(sp.get('lng') || '');
     const lang = (sp.get('lang') || 'ta').slice(0, 2).toLowerCase();
+    const national = sp.get('national') === '1';
 
+    // national=1 forces country-wide headlines (in grandma's language);
+    // otherwise the region comes from GPS or her UI language.
     let region: string | null = null;
-    if (!isNaN(lat) && !isNaN(lng)) region = await reverseGeocode(lat, lng);
-    region = region || STATE_BY_LANG[lang] || 'India';
+    if (!national) {
+      if (!isNaN(lat) && !isNaN(lng)) region = await reverseGeocode(lat, lng);
+      region = region || STATE_BY_LANG[lang] || 'India';
+    } else {
+      region = 'India';
+    }
 
     const url =
       `https://news.google.com/rss/search?q=${encodeURIComponent(`${region} news`)}` +
@@ -82,8 +89,17 @@ export async function GET(req: NextRequest) {
       if (!titleMatch) continue;
       let t = cleanTitle(titleMatch[1]);
       if (!t || t.includes('Google')) continue;
-      // Google appends " - Source" to headlines — drop it so TTS reads cleanly.
-      t = t.replace(/\s+-\s+[^-]+$/, '');
+      // Google appends " - Source" (hyphen or en-dash) to headlines — drop it
+      // so TTS reads cleanly. Sources are Latin-script names ("Indian Express",
+      // "DinaMani") while the headline is in the native script, so keep
+      // stripping trailing dash-chunks while the tail looks like a source —
+      // this also handles multi-word editions ("… - Indian Express - Tamil").
+      // A Tamil tail chunk ("… - அன்புமணி") is real attribution, not a source,
+      // so it is kept.
+      const stripTail = (s: string) => s.replace(/\s+[-\u2013\u2014]\s+[^-\u2013\u2014]+$/, '');
+      t = stripTail(t);
+      const tail = t.match(/\s+[-\u2013\u2014]\s+([^-\u2013\u2014]+)$/);
+      if (tail && /^[\x20-\x7E]+$/.test(tail[1].trim())) t = stripTail(t);
       // Strip emoji/control noise but keep letters (incl. Indic combining
       // marks), numbers, punctuation, spaces, currency.
       t = t.replace(/[^\p{L}\p{M}\p{N}\p{P}\p{Z}\p{Sc}]/gu, '').trim();
