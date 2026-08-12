@@ -37,9 +37,18 @@ function loadSavedTurns(lang: LangKey): Turn[] {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0 && parsed.every(isTurn)) {
-        return parsed;
+        // A thread that is ONLY the canned welcome (no real conversation) has
+        // nothing worth restoring — regenerate it in the CURRENT language so a
+        // stale welcome saved under this key from another language (an earlier
+        // buggy build) can't appear after a language switch.
+        if (parsed.length === 1 && parsed[0].from === 'ai' && parsed[0].uid === 0) {
+          localStorage.removeItem(chatStorageKey(lang));
+        } else {
+          return parsed;
+        }
+      } else {
+        localStorage.removeItem(chatStorageKey(lang)); // corrupt/legacy — reset
       }
-      localStorage.removeItem(chatStorageKey(lang)); // corrupt/legacy — reset
     }
   } catch {
     // storage unavailable — start fresh
