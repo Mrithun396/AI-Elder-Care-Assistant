@@ -11,5 +11,11 @@
   # to its own publish dir during the build anyway.
   publish = ".next"
 
+  [build.environment]
+    # NEXT_PUBLIC_* values are intentionally inlined into the JS bundles by
+    # Next.js (the Supabase project URL is public by design), so Netlify's
+    # secret scanner would otherwise fail every build as a false positive.
+    SECRETS_SCAN_OMIT_KEYS = "NEXT_PUBLIC_SUPABASE_URL"
+
 [[plugins]]
   package = "@netlify/plugin-nextjs"
