@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Mic, Sparkles, BookOpen, Newspaper, MessagesSquare, Laugh, Volume2, CalendarCheck } from 'lucide-react';
 import { T, translate, useLang, type LangKey } from '../../lib/i18n';
 import { grandmaLangCode, grandmaVoice } from '../../lib/langs';
+import { grabLocation, readSavedLocation } from '../../lib/location';
 import { playSpeech, stopSpeech } from '../../lib/audio';
 
 type Turn = { from: 'user' | 'ai'; text: string; uid: number };
@@ -241,7 +242,7 @@ const INTENTS: { intent: string; keywords: string[] }[] = [
 
 // Intents that need real work (parse a number, save to Supabase, recall, fire
 // an SOS) rather than a canned scripted reply.
-const DYNAMIC_INTENTS = ['sugar', 'bp', 'steps', 'remember', 'recall', 'joke', 'emergency'];
+const DYNAMIC_INTENTS = ['sugar', 'bp', 'steps', 'remember', 'recall', 'joke', 'emergency', 'news'];
 
 // Loose riddle-guess matching: normalizes both sides (Tamil + Latin scripts),
 // then accepts exact, substring, or shared-token matches.
@@ -503,6 +504,12 @@ export default function CompanionPage() {
     setHydrated(true);
   }, [lang]);
 
+  // Best-effort: learn which area grandma lives in (persisted once) so
+  // regional news works without re-prompting for permission every time.
+  useEffect(() => {
+    if (!readSavedLocation()) grabLocation(5000);
+  }, []);
+
   useEffect(() => {
     let alive = true;
     fetch('/api/chat')
@@ -659,6 +666,39 @@ export default function CompanionPage() {
       } catch {
         setThinking(false);
         setError(translate(lang, 'comp.errSave'));
+      }
+      return;
+    }
+    if (intent === 'news') {
+      // Real today's news for grandma's region: resolve the state from her
+      // saved GPS location (or her language as fallback), fetch localized
+      // headlines, and read them aloud. The headlines come back already in
+      // grandma's language, so they are spoken directly (no re-translation).
+      try {
+        const loc = readSavedLocation();
+        const langCode = grandmaLangCode();
+        const lang2 = langCode.split('-')[0] || 'ta';
+        const params = new URLSearchParams({ lang: lang2 });
+        if (loc) {
+          params.set('lat', String(loc.lat));
+          params.set('lng', String(loc.lng));
+        }
+        const res = await fetch(`/api/news?${params}`);
+        const data = await res.json();
+        if (!res.ok || !Array.isArray(data.headlines) || data.headlines.length === 0) {
+          throw new Error(data.error || 'news failed');
+        }
+        const intro = translate(lang, 'comp.newsIntro');
+        await speakDynamic(
+          `${intro} ${data.headlines.join('. ')}.`,
+          mySeq,
+          langCode // headlines are already in grandma's language — speak as-is
+        );
+      } catch {
+        await speakDynamic(
+          'I could not fetch the news right now, Grandma. Please try again in a moment.',
+          mySeq
+        );
       }
       return;
     }

@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Siren, Phone, User, PhoneCall, CheckCircle2 } from 'lucide-react';
 import { T, translate, fmt, useLang } from '../../lib/i18n';
 import { grandmaLangCode, grandmaVoice } from '../../lib/langs';
+import { saveLocation } from '../../lib/location';
 import { playSpeech, stopSpeech } from '../../lib/audio';
 
 const CONTACTS = [
@@ -232,6 +233,9 @@ export default function EmergencyPage() {
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         locationRef.current = `https://www.google.com/maps?q=${pos.coords.latitude},${pos.coords.longitude}`;
+        // Persist the position so features that need "which area does she live
+        // in" (e.g. regional news) can reuse it without re-prompting.
+        saveLocation(pos.coords.latitude, pos.coords.longitude);
       },
       () => {},
       { timeout: 5000, maximumAge: 60000 }

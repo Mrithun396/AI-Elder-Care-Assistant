@@ -483,6 +483,21 @@ export const DICT: Record<string, Entry> = {
     pa: 'ਨਮਸਤੇ, ਦਾਦੀ! ਮੈਂ ਤੁਹਾਡਾ AI ਸਾਥੀ ਹਾਂ। ਅੱਜ ਤੁਸੀਂ ਕੀ ਕਰਨਾ ਚਾਹੋਗੇ?',
     od: 'ନମସ୍କାର, ଜେଜେମା! ମୁଁ ଆପଣଙ୍କ AI ସାଥୀ। ଆଜି ଆପଣ କଣ କରିବାକୁ ଚାହୁଁଛନ୍ତି?',
   },
+  // Spoken before the real regional headlines (which are already in grandma's
+  // language) — so the intro has to match per language.
+  'comp.newsIntro': {
+    en: "Here's today's news:",
+    ta: 'இன்றைய முக்கிய செய்திகள் இதோ:',
+    hi: 'आज की मुख्य खबरें:',
+    te: 'ఈరోజు ప్రధాన వార్తలు:',
+    ml: 'ഇന്നത്തെ പ്രധാന വാർത്തകൾ:',
+    kn: 'ಇಂದಿನ ಪ್ರಮುಖ ಸುದ್ದಿಗಳು:',
+    bn: 'আজকের প্রধান খবর:',
+    mr: 'आजच्या प्रमुख बातम्या:',
+    gu: 'આજના મુખ્ય સમાચાર:',
+    pa: 'ਅੱਜ ਦੀਆਂ ਮੁੱਖ ਖਬਰਾਂ:',
+    od: 'ଆଜିର ମୁଖ୍ୟ ଖବର:',
+  },
   'comp.demoReply': {
     en: '(Demo) I would love to {label}! Voice chat is coming soon — this is a preview.',
     ta: '(டெமோ) நான் அதை விரும்புகிறேன்! குரல் அரட்டை விரைவில் வருகிறது — இது ஒரு முன்னோட்டம்.',
