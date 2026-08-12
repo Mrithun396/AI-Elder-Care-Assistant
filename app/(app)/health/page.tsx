@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Smile,
   HeartPulse,
@@ -9,10 +9,11 @@ import {
   TrendingUp,
   Minus,
   Plus,
-  TriangleAlert,
   Gauge,
+  TriangleAlert,
 } from 'lucide-react';
-import { T, translate, useLang } from '../../lib/i18n';
+import { LineChart, BpChart, FlagBadge } from '../../components/HealthCharts';
+import { T, translate, fmt, useLang } from '../../lib/i18n';
 
 const MOODS = [
   { emoji: '😊', label: 'great' },
@@ -54,132 +55,7 @@ function parseBP(value: string): { sys: number; dia: number } | null {
   return { sys: parseInt(m[1], 10), dia: parseInt(m[2], 10) };
 }
 
-// Hand-rolled SVG sparkline — no chart library needed, and it renders crisply
-// at any width. One line + soft area fill + dots with hover titles.
-function LineChart({
-  data,
-  color,
-  unit = '',
-  height = 92,
-}: {
-  data: { value: number; time?: string }[];
-  color: string;
-  unit?: string;
-  height?: number;
-}) {
-  const W = 320;
-  const H = height;
-  const P = 10;
-  if (data.length === 0) {
-    return <p className="py-8 text-center text-xs text-ink-muted"><T k="health.noData" /></p>;
-  }
-  const vals = data.map((d) => d.value);
-  const min = Math.min(...vals);
-  const max = Math.max(...vals);
-  const span = max - min || 1;
-  const x = (i: number) => (data.length === 1 ? W / 2 : P + (i * (W - 2 * P)) / (data.length - 1));
-  const y = (v: number) => H - P - ((v - min) / span) * (H - 2 * P);
-  const line = vals.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
-  const area = `${P},${H - P} ${line} ${x(data.length - 1).toFixed(1)},${H - P}`;
-  return (
-    <div>
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" preserveAspectRatio="none" role="img" aria-label="trend">
-        <polygon points={area} fill={color} opacity={0.12} />
-        <polyline
-          points={line}
-          fill="none"
-          stroke={color}
-          strokeWidth={2.5}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          vectorEffect="non-scaling-stroke"
-        />
-        {vals.map((v, i) => (
-          <circle key={i} cx={x(i)} cy={y(v)} r={3.5} fill={color} className="cursor-pointer">
-            <title>
-              {`${v}${unit ? ' ' + unit : ''}${data[i].time ? ' · ' + new Date(data[i].time!).toLocaleString() : ''}`}
-            </title>
-          </circle>
-        ))}
-      </svg>
-      <div className="mt-1 flex justify-between text-[10px] font-semibold tabular-nums text-ink-muted">
-        <span>{min}{unit ? ` ${unit}` : ''}</span>
-        <span className="font-bold text-ink">{vals[vals.length - 1]}{unit ? ` ${unit}` : ''}</span>
-        <span>{max}{unit ? ` ${unit}` : ''}</span>
-      </div>
-    </div>
-  );
-}
 
-// Blood pressure is two values — systolic + diastolic — so it gets two lines.
-// Small "needs attention" badge shown on flagged readings.
-function FlagBadge({ flagged }: { flagged?: boolean }) {
-  if (!flagged) return null;
-  return (
-    <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-terra-soft px-2 py-0.5 text-[10px] font-bold text-terra">
-      <TriangleAlert size={11} /> <T k="health.needsAttention" />
-    </span>
-  );
-}
-
-function BpChart({ data }: { data: { sys: number; dia: number; time?: string }[] }) {
-  const W = 320;
-  const H = 92;
-  const P = 10;
-  if (data.length === 0) {
-    return <p className="py-8 text-center text-xs text-ink-muted"><T k="health.noData" /></p>;
-  }
-  const all = data.flatMap((d) => [d.sys, d.dia]);
-  const min = Math.min(...all);
-  const max = Math.max(...all);
-  const span = max - min || 1;
-  const x = (i: number) => (data.length === 1 ? W / 2 : P + (i * (W - 2 * P)) / (data.length - 1));
-  const y = (v: number) => H - P - ((v - min) / span) * (H - 2 * P);
-  const line = (key: 'sys' | 'dia') =>
-    data.map((d, i) => `${x(i).toFixed(1)},${y(d[key]).toFixed(1)}`).join(' ');
-  return (
-    <div>
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" preserveAspectRatio="none" role="img" aria-label="blood pressure trend">
-        <polyline
-          points={line('sys')}
-          fill="none"
-          stroke="#C1502E"
-          strokeWidth={2.5}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          vectorEffect="non-scaling-stroke"
-        />
-        <polyline
-          points={line('dia')}
-          fill="none"
-          stroke="#3B82F6"
-          strokeWidth={2.5}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          vectorEffect="non-scaling-stroke"
-        />
-        {data.map((d, i) => (
-          <g key={i}>
-            <circle cx={x(i)} cy={y(d.sys)} r={3.5} fill="#C1502E">
-              <title>{`sys ${d.sys}${d.time ? ' · ' + new Date(d.time).toLocaleString() : ''}`}</title>
-            </circle>
-            <circle cx={x(i)} cy={y(d.dia)} r={3.5} fill="#3B82F6">
-              <title>{`dia ${d.dia}${d.time ? ' · ' + new Date(d.time).toLocaleString() : ''}`}</title>
-            </circle>
-          </g>
-        ))}
-      </svg>
-      <div className="mt-1 flex justify-between text-[10px] font-semibold tabular-nums text-ink-muted">
-        <span>{min}</span>
-        <span className="flex items-center gap-3">
-          <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-[#C1502E]" /><T k="health.sys" /></span>
-          <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-[#3B82F6]" /><T k="health.dia" /></span>
-        </span>
-        <span>{max}</span>
-      </div>
-    </div>
-  );
-}
 
 export default function HealthPage() {
   const lang = useLang();
@@ -193,6 +69,57 @@ export default function HealthPage() {
     bp: { sys: number; dia: number; time?: string }[];
     steps: { value: number; time?: string }[];
   }>({ sugar: [], bp: [], steps: [] });
+  // Today's readings (for the daily check-in requirement).
+  const [todayReadings, setTodayReadings] = useState<{ sugar?: Checkin; bp?: Checkin }>({});
+  const [sugarInput, setSugarInput] = useState('');
+  const [sysInput, setSysInput] = useState('');
+  const [diaInput, setDiaInput] = useState('');
+  const [savingSugar, setSavingSugar] = useState(false);
+  const [savingBp, setSavingBp] = useState(false);
+  const [sugarFlash, setSugarFlash] = useState(false);
+  const [bpFlash, setBpFlash] = useState(false);
+  const [checkinWarn, setCheckinWarn] = useState('');
+  const [checkinError, setCheckinError] = useState('');
+
+  // Load readings + derive today's sugar/BP and the 7-day trends after the
+  // fetch (outside render, so date handling stays pure).
+  const loadCheckins = useCallback(() => {
+    fetch('/api/health-checkins')
+      .then((r) => r.json())
+      .then((data: Checkin[]) => {
+        const list = Array.isArray(data) ? data : [];
+        setCheckins(list);
+        const start = new Date();
+        start.setHours(0, 0, 0, 0);
+        const ts = start.getTime();
+        const isToday = (c: Checkin) => c.created_at && new Date(c.created_at).getTime() >= ts;
+        setTodayReadings({
+          sugar: list.find((c) => c.metric === 'sugar' && isToday(c)),
+          bp: list.find((c) => c.metric === 'bp' && isToday(c)),
+        });
+        const cutoff = Date.now() - 7 * 86400000;
+        const recent = list.filter((c) => c.created_at && new Date(c.created_at).getTime() >= cutoff);
+        const byTime = (a: Checkin, b: Checkin) =>
+          new Date(a.created_at!).getTime() - new Date(b.created_at!).getTime();
+        const sugar = recent
+          .filter((c) => c.metric === 'sugar')
+          .sort(byTime)
+          .map((c) => ({ value: parseFloat(c.value), time: c.created_at }))
+          .filter((p) => !isNaN(p.value));
+        const bp = recent
+          .filter((c) => c.metric === 'bp')
+          .sort(byTime)
+          .map((c) => ({ ...parseBP(c.value)!, time: c.created_at }))
+          .filter((p) => p.sys !== undefined && p.dia !== undefined);
+        const steps = recent
+          .filter((c) => c.metric === 'steps')
+          .sort(byTime)
+          .map((c) => ({ value: parseFloat(c.value), time: c.created_at }))
+          .filter((p) => !isNaN(p.value));
+        setTrends({ sugar, bp, steps });
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     // Deferred one tick so state updates don't cascade inside the effect body.
@@ -209,39 +136,10 @@ export default function HealthPage() {
       }
       setWeek(days);
       // Real readings from Supabase (spoken to the companion, or logged here)
-      fetch('/api/health-checkins')
-        .then((r) => r.json())
-        .then((data: Checkin[]) => {
-          const list = Array.isArray(data) ? data : [];
-          setCheckins(list);
-          // 7-day trends computed here (outside render) so date handling is pure
-          const cutoff = Date.now() - 7 * 86400000;
-          const recent = list.filter(
-            (c) => c.created_at && new Date(c.created_at).getTime() >= cutoff
-          );
-          const byTime = (a: Checkin, b: Checkin) =>
-            new Date(a.created_at!).getTime() - new Date(b.created_at!).getTime();
-          const sugar = recent
-            .filter((c) => c.metric === 'sugar')
-            .sort(byTime)
-            .map((c) => ({ value: parseFloat(c.value), time: c.created_at }))
-            .filter((p) => !isNaN(p.value));
-          const bp = recent
-            .filter((c) => c.metric === 'bp')
-            .sort(byTime)
-            .map((c) => ({ ...parseBP(c.value)!, time: c.created_at }))
-            .filter((p) => p.sys !== undefined && p.dia !== undefined);
-          const steps = recent
-            .filter((c) => c.metric === 'steps')
-            .sort(byTime)
-            .map((c) => ({ value: parseFloat(c.value), time: c.created_at }))
-            .filter((p) => !isNaN(p.value));
-          setTrends({ sugar, bp, steps });
-        })
-        .catch(() => {});
+      loadCheckins();
     }, 0);
     return () => clearTimeout(id);
-  }, []);
+  }, [loadCheckins]);
 
   const save = (next: Day) => {
     setToday(next);
@@ -274,6 +172,66 @@ export default function HealthPage() {
   const moodEmoji = MOODS.find((m) => m.label === today.mood)?.emoji || null;
   const maxWater = Math.max(1, ...week.map((d) => d.water));
 
+  const clockTime = (iso?: string) =>
+    iso ? new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+  const checkinDone = !!(todayReadings.sugar && todayReadings.bp);
+
+  const saveSugar = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const n = parseFloat(sugarInput);
+    if (isNaN(n) || n <= 0 || savingSugar) return;
+    setSavingSugar(true);
+    setCheckinError('');
+    setCheckinWarn('');
+    try {
+      const res = await fetch('/api/health-checkins', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ metric: 'sugar', value: String(n), unit: 'mg/dL' }),
+      });
+      if (!res.ok) throw new Error('save failed');
+      const saved = await res.json().catch(() => null);
+      if (saved?.flagged) setCheckinWarn(translate(lang, 'health.checkinWarn'));
+      setSugarInput('');
+      setSugarFlash(true);
+      setTimeout(() => setSugarFlash(false), 2500);
+      await loadCheckins();
+    } catch {
+      setCheckinError(translate(lang, 'health.errSave'));
+    } finally {
+      setSavingSugar(false);
+    }
+  };
+
+  const saveBp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const sys = parseInt(sysInput, 10);
+    const dia = parseInt(diaInput, 10);
+    if (isNaN(sys) || isNaN(dia) || sys < 50 || sys > 250 || dia < 30 || dia > 150 || savingBp) return;
+    setSavingBp(true);
+    setCheckinError('');
+    setCheckinWarn('');
+    try {
+      const res = await fetch('/api/health-checkins', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ metric: 'bp', value: `${sys}/${dia}`, unit: 'mmHg' }),
+      });
+      if (!res.ok) throw new Error('save failed');
+      const saved = await res.json().catch(() => null);
+      if (saved?.flagged) setCheckinWarn(translate(lang, 'health.checkinWarn'));
+      setSysInput('');
+      setDiaInput('');
+      setBpFlash(true);
+      setTimeout(() => setBpFlash(false), 2500);
+      await loadCheckins();
+    } catch {
+      setCheckinError(translate(lang, 'health.errSave'));
+    } finally {
+      setSavingBp(false);
+    }
+  };
+
   // Newest-first list -> latest reading per metric
   const latest = useMemo(() => {
     const m: Record<string, Checkin> = {};
@@ -289,6 +247,118 @@ export default function HealthPage() {
         <h1 className="text-2xl font-bold text-ink"><T k="health.title" /></h1>
         <p className="text-sm text-ink-muted"><T k="health.subtitle" /></p>
       </div>
+
+      {/* Today's check-in — sugar & BP are required daily; the family dashboard sees them live */}
+      <section className="rounded-3xl border-2 border-accent/50 bg-card p-6 shadow-soft">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-ink">
+            <HeartPulse size={16} className="text-brand" />
+            <T k="health.checkin" />
+          </h2>
+          <span
+            className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-wide ${
+              checkinDone ? 'bg-sage-soft text-sage' : 'bg-terra-soft text-terra'
+            }`}
+          >
+            <span className={`h-1.5 w-1.5 rounded-full ${checkinDone ? 'bg-sage' : 'bg-terra animate-pulse'}`} />
+            <T k={checkinDone ? 'health.checkinDone' : 'health.checkinDue'} />
+          </span>
+        </div>
+        {!checkinDone && (
+          <p className="mb-4 text-xs text-ink-muted"><T k="health.checkinSub" /></p>
+        )}
+        <div className="grid gap-3 sm:grid-cols-2">
+          {/* Sugar */}
+          <div className="rounded-2xl border border-line bg-card-soft p-4">
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <p className="text-xs font-bold text-ink"><T k="health.sugar" /></p>
+              {todayReadings.sugar ? (
+                <span className="text-sm font-bold text-sage tabular-nums">
+                  {todayReadings.sugar.value} mg/dL ✓
+                </span>
+              ) : (
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-terra">
+                  <T k="health.sugarPending" />
+                </span>
+              )}
+            </div>
+            {todayReadings.sugar ? (
+              <p className="text-[11px] text-ink-muted">
+                {fmt(lang, 'health.loggedAt', { t: clockTime(todayReadings.sugar.created_at) })}
+              </p>
+            ) : (
+              <form onSubmit={saveSugar} className="flex gap-2">
+                <input
+                  value={sugarInput}
+                  onChange={(e) => setSugarInput(e.target.value)}
+                  placeholder={translate(lang, 'health.sugarPh')}
+                  inputMode="decimal"
+                  className="min-w-0 flex-1 rounded-xl border border-line bg-card px-3 py-2 text-sm text-ink placeholder:text-ink-muted/60 focus:border-accent focus:outline-none"
+                />
+                <button
+                  type="submit"
+                  disabled={savingSugar}
+                  className="shrink-0 rounded-xl bg-accent px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-accent/90 disabled:opacity-50"
+                >
+                  {savingSugar ? <T k="health.saving" /> : sugarFlash ? <T k="health.saved" /> : <T k="health.save" />}
+                </button>
+              </form>
+            )}
+          </div>
+
+          {/* Blood pressure */}
+          <div className="rounded-2xl border border-line bg-card-soft p-4">
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <p className="text-xs font-bold text-ink"><T k="health.bp" /></p>
+              {todayReadings.bp ? (
+                <span className="text-sm font-bold text-sage tabular-nums">{todayReadings.bp.value} ✓</span>
+              ) : (
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-terra">
+                  <T k="health.bpPending" />
+                </span>
+              )}
+            </div>
+            {todayReadings.bp ? (
+              <p className="text-[11px] text-ink-muted">
+                {fmt(lang, 'health.loggedAt', { t: clockTime(todayReadings.bp.created_at) })}
+              </p>
+            ) : (
+              <form onSubmit={saveBp} className="flex items-center gap-2">
+                <input
+                  value={sysInput}
+                  onChange={(e) => setSysInput(e.target.value)}
+                  placeholder={translate(lang, 'health.bpSysPh')}
+                  inputMode="numeric"
+                  className="w-16 rounded-xl border border-line bg-card px-3 py-2 text-center text-sm text-ink placeholder:text-ink-muted/60 focus:border-accent focus:outline-none"
+                />
+                <span className="text-sm font-bold text-ink-muted">/</span>
+                <input
+                  value={diaInput}
+                  onChange={(e) => setDiaInput(e.target.value)}
+                  placeholder={translate(lang, 'health.bpDiaPh')}
+                  inputMode="numeric"
+                  className="w-16 rounded-xl border border-line bg-card px-3 py-2 text-center text-sm text-ink placeholder:text-ink-muted/60 focus:border-accent focus:outline-none"
+                />
+                <button
+                  type="submit"
+                  disabled={savingBp}
+                  className="shrink-0 rounded-xl bg-brand px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-brand/90 disabled:opacity-50"
+                >
+                  {savingBp ? <T k="health.saving" /> : bpFlash ? <T k="health.saved" /> : <T k="health.save" />}
+                </button>
+              </form>
+            )}
+          </div>
+        </div>
+        {checkinWarn && (
+          <p className="mt-3 flex items-center gap-1.5 text-xs font-semibold text-terra">
+            <TriangleAlert size={13} /> {checkinWarn}
+          </p>
+        )}
+        {checkinError && (
+          <p className="mt-3 text-xs font-semibold text-terra">{checkinError}</p>
+        )}
+      </section>
 
       {/* Mood */}
       <section className="rounded-3xl border border-line bg-card p-6 shadow-soft">
@@ -403,21 +473,21 @@ export default function HealthPage() {
               <span className="flex items-center gap-1.5"><Activity size={13} className="text-terra" /> <T k="health.sugarTrend" /></span>
               <span className="tabular-nums text-terra">{trends.sugar.length ? trends.sugar[trends.sugar.length - 1].value : '—'}</span>
             </p>
-            <LineChart data={trends.sugar} color="#C1502E" unit="mg/dL" />
+            <LineChart data={trends.sugar} color="#C1502E" unit="mg/dL" emptyLabel={translate(lang, 'health.noData')} />
           </div>
           <div className="rounded-3xl border border-line bg-card p-5 shadow-soft">
             <p className="mb-2 flex items-center justify-between text-xs font-bold text-ink">
               <span className="flex items-center gap-1.5"><HeartPulse size={13} className="text-brand" /> <T k="health.bpTrend" /></span>
               {latestBP ? <span className="tabular-nums text-brand">{latestBP.sys}/{latestBP.dia}</span> : <span>—</span>}
             </p>
-            <BpChart data={trends.bp} />
+            <BpChart data={trends.bp} emptyLabel={translate(lang, 'health.noData')} sysLabel={translate(lang, 'health.sys')} diaLabel={translate(lang, 'health.dia')} />
           </div>
           <div className="rounded-3xl border border-line bg-card p-5 shadow-soft sm:col-span-2 lg:col-span-1">
             <p className="mb-2 flex items-center justify-between text-xs font-bold text-ink">
               <span className="flex items-center gap-1.5"><Footprints size={13} className="text-accent" /> <T k="health.stepsTrend" /></span>
               <span className="tabular-nums text-accent">{trends.steps.length ? trends.steps[trends.steps.length - 1].value.toLocaleString() : '—'}</span>
             </p>
-            <LineChart data={trends.steps} color="#E7A33E" unit="steps" />
+            <LineChart data={trends.steps} color="#E7A33E" unit="steps" emptyLabel={translate(lang, 'health.noData')} />
           </div>
         </div>
       </section>

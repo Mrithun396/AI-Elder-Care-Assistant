@@ -187,10 +187,10 @@ const INTENTS: { intent: string; keywords: string[] }[] = [
     intent: 'health',
     keywords: ['உடல்நலம்', 'health', 'மருந்து', 'medicine', 'சுகாதாரம்', 'सेहत', 'স্বাস্থ্য', 'ঔষধ', 'आरोग्य', 'औषध', 'સ્વાસ્થ્ય', 'દવા', 'ਸਿਹਤ', 'ਦਵਾਈ', 'ସ୍ୱାସ୍ଥ୍ୟ', 'ଔଷଧ'],
   },
-  { intent: 'sugar', keywords: ['சர்க்கரை', 'sugar', 'blood sugar', 'शुगर', 'চিনি', 'সুগার', 'साखर', 'ખાંડ', 'સુગર', 'ਸ਼ੂਗਰ', 'ਖੰਡ', 'ସୁଗାର', 'ଚିନି'] },
+  { intent: 'sugar', keywords: ['சர்க்கரை', 'sugar', 'blood sugar', 'சுகர்', 'சுக்கர்', 'ஷுகர்', 'சீனி', 'शुगर', 'চিনি', 'সুগার', 'साखर', 'ખાંડ', 'સુગર', 'ਸ਼ੂਗਰ', 'ਖੰਡ', 'ସୁଗାର', 'ଚିନି'] },
   {
     intent: 'bp',
-    keywords: ['இரத்த அழுத்தம்', 'blood pressure', 'அழுத்தம்', 'bp', 'बीपी', 'ब्लड प्रेशर', 'রক্তচাপ', 'ব্লাড প্রেসার', 'रक्तदाब', 'લોહીનું દબાણ', 'બ્લડ પ્રેશર', 'ਬਲੱਡ ਪ੍ਰੈਸ਼ਰ', 'ਖੂਨ ਦਾ ਦਬਾਅ', 'ରକ୍ତଚାପ', 'ବ୍ଲଡ ପ୍ରେସର'],
+    keywords: ['இரத்த அழுத்தம்', 'blood pressure', 'அழுத்தம்', 'bp', 'பிபி', 'பீபி', 'ஓவர்', 'ஓவரு', 'बीपी', 'ब्लड प्रेशर', 'রক্তচাপ', 'ব্লাড প্রেসার', 'रक्तदाब', 'લોહીનું દબાણ', 'બ્લડ પ્રેશર', 'ਬਲੱਡ ਪ੍ਰੈਸ਼ਰ', 'ਖੂਨ ਦਾ ਦਬਾਅ', 'ରକ୍ତଚାପ', 'ବ୍ଲଡ ପ୍ରେସର'],
   },
   {
     intent: 'steps',
@@ -198,7 +198,12 @@ const INTENTS: { intent: string; keywords: string[] }[] = [
   },
   {
     intent: 'remember',
-    keywords: ['நினைவில் வை', 'நினைவு வை', 'ஞாபகம் வை', 'remember', 'note down', 'याद', 'মনে রাখো', 'মনে রাখবেন', 'लक्षात ठेव', 'યાદ રાખો', 'યાદ રાખ', 'ਯਾਦ ਰੱਖੋ', 'ਯਾਦ ਰੱਖ', 'ମନେ ରଖ', 'ମନେ ରଖନ୍ତୁ'],
+    keywords: [
+      'நினைவில் வை', 'நினைவு வை', 'ஞாபகம் வை', 'ஞாபகம் வச்சு', 'ஞாபகம் வைச்சு',
+      'வச்சுக்கோ', 'வைச்சுக்கோ', 'வச்சுக்க', 'வைச்சுக்க', 'குறிச்சு வை', 'எழுதி வை',
+      'remember', 'note down',
+      'याद', 'মনে রাখো', 'মনে রাখবেন', 'लक्षात ठेव', 'યાદ રાખો', 'યાદ રાખ', 'ਯਾਦ ਰੱਖੋ', 'ਯਾਦ ਰੱਖ', 'ମନେ ରଖ', 'ମନେ ରଖନ୍ତୁ',
+    ],
   },
   {
     intent: 'family',
@@ -239,10 +244,19 @@ const WORD_NUM: Record<string, number> = {
   பூஜ்யம்: 0, ஒன்று: 1, ரெண்டு: 2, இரண்டு: 2, மூணு: 3, மூன்று: 3, நாலு: 4, நான்கு: 4,
   ஐந்து: 5, ஆறு: 6, ஏழு: 7, எட்டு: 8, ஒன்பது: 9, பத்து: 10, இருபது: 20, முப்பது: 30,
   நாற்பது: 40, ஐம்பது: 50, அறுபது: 60, எழுபது: 70, எண்பது: 80, தொண்ணூறு: 90,
-  நூறு: 100, நூற்று: 100, ஆயிரம்: 1000,
+  // Inflected tens used in compound numbers (இருபத்தி ஒன்று = 21) + the
+  // colloquial hundred form (நூற்றி இருபது = 120) Sarvam's STT often returns.
+  இருபத்தி: 20, முப்பத்தி: 30, நாற்பத்தி: 40, ஐம்பத்தி: 50, அறுபத்தி: 60,
+  எழுபத்தி: 70, எண்பத்தி: 80, தொண்ணூற்றி: 90,
+  நூறு: 100, நூற்று: 100, நூற்றி: 100, ஆயிரம்: 1000,
 };
 
-const REMEMBER_TRIGGERS = ['நினைவில் வை', 'நினைவு வை', 'ஞாபகம் வை', 'remember', 'note down', 'याद रखना', 'याद रखो'];
+const REMEMBER_TRIGGERS = [
+  'நினைவில் வை', 'நினைவு வை', 'ஞாபகம் வை',
+  'ஞாபகம் வச்சுக்கோ', 'ஞாபகம் வைச்சுக்கோ', 'ஞாபகம் வச்சு', 'ஞாபகம் வைச்சு',
+  'வச்சுக்கோ', 'வைச்சுக்கோ', 'வச்சுக்க', 'வைச்சுக்க', 'குறிச்சு வை', 'எழுதி வை', 'பதிவு செய்',
+  'remember', 'note down', 'याद रखना', 'याद रखो',
+];
 const MEMORY_CATEGORIES: { cat: string; keywords: string[] }[] = [
   { cat: 'hospital', keywords: ['மருத்துவர்', 'மருத்துவமனை', 'டாக்டர்', 'hospital', 'doctor', 'appointment', 'checkup'] },
   { cat: 'date', keywords: ['நாள்', 'தேதி', 'date', 'birthday', 'anniversary'] },
@@ -250,6 +264,17 @@ const MEMORY_CATEGORIES: { cat: string; keywords: string[] }[] = [
 ];
 
 function wordsToNumber(tokens: string[]): number | null {
+  // Colloquial compound: a small unit word followed by a tens word means
+  // "hundreds + tens" — "one twenty" (120), "ஒன்று தொண்ணூறு" (190). The
+  // standard forms (நூற்று இருபது, one hundred twenty) still compose via the
+  // hundred rule in the main loop below.
+  if (tokens.length >= 2) {
+    const first = WORD_NUM[tokens[0]];
+    if (first !== undefined && first >= 1 && first <= 9) {
+      const rest = wordsToNumber(tokens.slice(1));
+      if (rest !== null && rest >= 20 && rest <= 90) return first * 100 + rest;
+    }
+  }
   let total = 0;
   let current = 0;
   for (const t of tokens) {
@@ -295,27 +320,51 @@ function detectIntent(text: string): string {
   return 'default';
 }
 
-// Blood pressure comes as either "120/80", "120 over 80", or "one twenty over eighty".
+// Blood pressure comes as either "120/80", "120 over 80", "ஓவர்" (Tamil for
+// over), or the whole thing in word numbers ("நூற்றி இருபத்தி ஒன்று ஓவர்
+// ஒன்று தொண்ணூறு" = 121 over 190). Splitting at the separator lets each side
+// parse its own word-form number independently.
 function extractBP(text: string): { sys: number; dia: number } | null {
   const slash = text.match(/(\d{2,3})\s*\/\s*(\d{2,3})/);
   if (slash) return { sys: parseInt(slash[1], 10), dia: parseInt(slash[2], 10) };
-  const over = text.match(/(\d{2,3})\s*over\s*(\d{2,3})/i);
-  if (over) return { sys: parseInt(over[1], 10), dia: parseInt(over[2], 10) };
+  const parts = text.split(/\s+(?:over|ஓவர்|ஓவரு)\s+/i);
+  if (parts.length >= 2) {
+    const sys = extractNumbers(parts[0])[0];
+    const dia = extractNumbers(parts[1])[0];
+    if (sys !== undefined && dia !== undefined) return { sys, dia };
+  }
   const nums = extractNumbers(text);
   if (nums.length >= 2) return { sys: nums[0], dia: nums[1] };
   return null;
 }
 
 // "remember to go to the doctor" -> content is whatever follows the trigger.
+// Spoken Tamil often puts the verb at the END ("ஆகஸ்ட் முப்பதாம் தேதி ஞாபகம்
+// வச்சுக்கோ"), so when the trigger has nothing after it, the thing to remember
+// is everything BEFORE the trigger instead.
 function extractRemember(text: string): string {
   let lower = text.toLowerCase();
   let idx = -1;
+  let triggerLen = 0;
   for (const tr of REMEMBER_TRIGGERS) {
-    const i = lower.indexOf(tr.toLowerCase());
-    if (i !== -1 && (idx === -1 || i < idx)) idx = i;
+    const t = tr.toLowerCase();
+    const i = lower.indexOf(t);
+    if (i === -1) continue;
+    // Earliest match wins; at the same index the LONGEST trigger wins so a
+    // partial prefix (e.g. 'ஞாபகம் வச்சு' inside 'ஞாபகம் வச்சுக்கோ') can't
+    // leave a stray tail like "க்கோ".
+    if (idx === -1 || i < idx || (i === idx && t.length > triggerLen)) {
+      idx = i;
+      triggerLen = t.length;
+    }
   }
-  let content = text;
-  if (idx !== -1) content = text.slice(idx).replace(/^[^\u0b80-\u0bffa-z0-9]+/i, '');
+  if (idx === -1) return text.trim().replace(/[.!?]+$/, '');
+  const tail = text.slice(idx + triggerLen).replace(/^[^\u0b80-\u0bffa-z0-9]+/i, '');
+  if (!tail) {
+    // Trigger at the end — take everything before it.
+    return text.slice(0, idx).replace(/[\s,:;.-]+$/, '').trim().replace(/[.!?]+$/, '');
+  }
+  let content = tail;
   // Still has a trigger prefix (e.g. "remember that ...")? Strip leading trigger again.
   lower = content.toLowerCase();
   for (const tr of REMEMBER_TRIGGERS) {
@@ -357,12 +406,27 @@ export default function CompanionPage() {
   const busyRef = useRef(false);
   const seqRef = useRef(0);
   const uidRef = useRef(0);
+  // True once the saved thread has been restored for the current language. The
+  // persist effect must NOT run before that: on mount it fires with the initial
+  // welcome-only turns and would overwrite (erase) the saved conversation
+  // before the restore effect gets a chance to read it. This is STATE (not a
+  // ref) on purpose: React StrictMode (dev) re-runs effect setups before the
+  // first state update is applied, so a ref guard would flip true during pass 1
+  // and let the persist effect write the welcome-only thread in pass 2 — wiping
+  // the saved history on every visit. A state flag only flips on a re-render
+  // where the restored turns are already in state, so the first persist write
+  // always contains the real thread.
+  const [hydrated, setHydrated] = useState(false);
   const nextUid = () => ++uidRef.current;
   // Scripted replies are fixed text, so translate + synthesize each one (per
   // language) once and reuse it — the companion answers instantly on tap
   // instead of waiting on translate + TTS every time (~5-7s).
   const cacheRef = useRef<Map<string, Cached>>(new Map());
   const inflightRef = useRef<Map<string, Promise<Cached>>>(new Map());
+  // Half-spoken BP reading ("பிபி 120" with only the top number): the systolic
+  // is stashed here and the companion asks for the bottom number; the next
+  // utterance (e.g. "80") completes the reading and saves it to Supabase.
+  const pendingBpRef = useRef<{ sys: number; said: string } | null>(null);
 
   useEffect(() => {
     return () => {
@@ -373,7 +437,10 @@ export default function CompanionPage() {
   }, []);
 
   // Persist the thread whenever it changes (trimmed to the most recent turns).
+  // Guarded by hydrated so the initial welcome-only render can't wipe the
+  // saved conversation before the restore effect below has loaded it.
   useEffect(() => {
+    if (!hydrated) return;
     try {
       localStorage.setItem(
         chatStorageKey(lang),
@@ -383,7 +450,7 @@ export default function CompanionPage() {
       // storage unavailable — memory degrades gracefully
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [turns]);
+  }, [turns, hydrated]);
 
   // Restore this language's thread on mount, and swap to the selected
   // language's own thread when the language changes. Runs after the first
@@ -396,10 +463,17 @@ export default function CompanionPage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setTurns(t);
     uidRef.current = t.reduce((m, x) => Math.max(m, x.uid), 0);
+    // A fresh language thread shouldn't inherit a half-spoken BP reading.
+    pendingBpRef.current = null;
     // Bump the sequence so any reply still in flight from the previous thread
     // is dropped by its mySeq guard instead of landing in this language's
     // restored conversation (and being persisted there).
     seqRef.current++;
+    // Flip hydration AFTER the restored thread is in state (same commit): the
+    // persist effect only starts writing on the next render, when `turns` is
+    // already the real thread — so it can never overwrite the saved history
+    // with the welcome-only placeholder.
+    setHydrated(true);
   }, [lang]);
 
   useEffect(() => {
@@ -512,6 +586,29 @@ export default function CompanionPage() {
   const riddleRef = useRef<Riddle | null>(null);
   const lastRiddleRef = useRef<Riddle | null>(null);
 
+  // Save a complete BP reading (both numbers) to Supabase and confirm aloud —
+  // shared by the direct path ("பிபி 120/80") and the two-step path (systolic
+  // first, then the bottom number). The health tab and the family dashboard
+  // read the same table, so a spoken reading appears everywhere.
+  const saveBpReading = async (sys: number, dia: number, note: string, mySeq: number) => {
+    try {
+      const res = await fetch('/api/health-checkins', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ metric: 'bp', value: `${sys}/${dia}`, unit: 'mmHg', note }),
+      });
+      if (!res.ok) throw new Error('save failed');
+      const saved = await res.json().catch(() => null);
+      const bpWarn = saved?.flagged
+        ? ' That reading is outside your usual range, Paati — please rest and take care.'
+        : '';
+      await speakDynamic(`Done, Grandma! Blood pressure ${sys} over ${dia} — recorded.${bpWarn}`, mySeq);
+    } catch {
+      setThinking(false);
+      setError(translate(lang, 'comp.errSave'));
+    }
+  };
+
   // Route the dynamic intents (health readings, steps, memory, riddles) — parse what was
   // said, persist to Supabase, then confirm aloud.
   const handleDynamic = async (intent: string, said: string, mySeq: number) => {
@@ -556,25 +653,22 @@ export default function CompanionPage() {
     } else if (intent === 'bp') {
       const bp = extractBP(said);
       if (!bp) {
+        // Only the top number spoken ("என்னோட பிபி 120")? Stash the systolic
+        // and ask for the bottom number — the next utterance completes it.
+        const nums = extractNumbers(said);
+        const sys = nums[0];
+        if (sys !== undefined && sys >= 80 && sys <= 250) {
+          pendingBpRef.current = { sys, said };
+          await speakDynamic(
+            `I got ${sys} for the top number, Grandma. What is the bottom number?`,
+            mySeq
+          );
+          return;
+        }
         await speakDynamic('I heard blood pressure, but I could not catch the numbers. Please say it again, like: blood pressure 120 over 80.', mySeq);
         return;
       }
-      try {
-        const res = await fetch('/api/health-checkins', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ metric: 'bp', value: `${bp.sys}/${bp.dia}`, unit: 'mmHg', note: said }),
-        });
-        if (!res.ok) throw new Error('save failed');
-        const savedBp = await res.json().catch(() => null);
-        const bpWarn = savedBp?.flagged
-          ? ' That reading is outside your usual range, Paati — please rest and take care.'
-          : '';
-        await speakDynamic(`Done, Grandma! Blood pressure ${bp.sys} over ${bp.dia} — recorded.${bpWarn}`, mySeq);
-      } catch {
-        setThinking(false);
-        setError(translate(lang, 'comp.errSave'));
-      }
+      await saveBpReading(bp.sys, bp.dia, said, mySeq);
     } else if (intent === 'steps') {
       const nums = extractNumbers(said);
       const n = nums[0];
@@ -604,7 +698,13 @@ export default function CompanionPage() {
         const res = await fetch('/api/memories', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ content, category: memoryCategory(content) }),
+          body: JSON.stringify({
+            content,
+            category: memoryCategory(content),
+            // The note is in grandma's language — the API translates it to
+            // English once so the family dashboard can show it in English.
+            source_language_code: grandmaLangCode(),
+          }),
         });
         if (!res.ok) throw new Error('save failed');
         await speakDynamic(`I will remember that, Grandma: ${content}.`, mySeq);
@@ -788,6 +888,24 @@ export default function CompanionPage() {
       setTurns((t) => [...t, { from: 'user', text: said, uid: nextUid() }]);
       const intent = detectIntent(said);
       const lower = said.toLowerCase();
+      // Completing a half-spoken BP reading ("பிபி 120" → the next utterance
+      // like "80" is the bottom number)? Only a plain utterance (intent
+      // 'default') counts as the answer — a new command like "சர்க்கரை 140"
+      // clears the pending reading and is handled normally instead.
+      if (pendingBpRef.current) {
+        const pending = pendingBpRef.current;
+        if (intent === 'default') {
+          const nums = extractNumbers(said);
+          const dia = nums.length > 0 ? nums[nums.length - 1] : undefined;
+          pendingBpRef.current = null;
+          if (dia !== undefined && dia >= 30 && dia <= 150) {
+            await saveBpReading(pending.sys, dia, `${pending.said} ${said}`, mySeq);
+            return;
+          }
+        } else {
+          pendingBpRef.current = null; // user moved on to a new command
+        }
+      }
       // If a riddle is pending, the next utterance is grandma's guess — UNLESS
       // it's clearly a real command (e.g. "சர்க்கரை 140"), which wins instead.
       if (riddleRef.current) {
@@ -945,6 +1063,7 @@ export default function CompanionPage() {
     if (busyRef.current || thinking) return;
     setError('');
     awaitingConsentRef.current = false; // a tap is a fresh command, not a riddle yes/no
+    pendingBpRef.current = null; // a tap is a fresh command, not a BP completion
     setTurns((t) => [
       ...t,
       { from: 'user', text: translate(lang, `comp.${intent}`), uid: nextUid() },

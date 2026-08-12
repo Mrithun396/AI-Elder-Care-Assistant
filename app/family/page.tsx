@@ -1,6 +1,8 @@
 'use client';
 import { useEffect, useState, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { LANGS } from '../lib/langs';
+import { LineChart, BpChart, type BpPoint } from '../components/HealthCharts';
 
 type Message = {
   id: string;
@@ -11,7 +13,13 @@ type Message = {
   created_at?: string;
 };
 
-type FamilyMember = { id: string; name: string; relation: string };
+type FamilyMember = { id: string; name: string; relation: string; email?: string | null };
+
+function parseBP(value: string): { sys: number; dia: number } | null {
+  const m = String(value).match(/(\d{2,3})\s*\/\s*(\d{2,3})/);
+  if (!m) return null;
+  return { sys: parseInt(m[1], 10), dia: parseInt(m[2], 10) };
+}
 
 type ReplyStatus = 'idle' | 'translating' | 'sending' | 'sent';
 
@@ -36,6 +44,7 @@ type Checkin = {
 type Memory = {
   id: string;
   content: string;
+  translated_text?: string | null;
   category?: string;
   created_at?: string;
 };
@@ -56,6 +65,9 @@ const CATEGORY_META: Record<string, { label: string; icon: string }> = {
 };
 
 export default function FamilyDashboard() {
+  const router = useRouter();
+  const [member, setMember] = useState<FamilyMember | null>(null);
+  const [authChecked, setAuthChecked] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [alert, setAlert] = useState<Alert | null>(null);
   const [checkins, setCheckins] = useState<Checkin[]>([]);
@@ -68,6 +80,11 @@ export default function FamilyDashboard() {
   const [replyError, setReplyError] = useState('');
   const [error, setError] = useState('');
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [trends, setTrends] = useState<{ sugar: { value: number; time?: string }[]; bp: BpPoint[]; steps: { value: number; time?: string }[] }>({
+    sugar: [],
+    bp: [],
+    steps: [],
+  });
 
   const load = useCallback(async () => {
     try {
@@ -98,7 +115,33 @@ export default function FamilyDashboard() {
       const res = await fetch('/api/health-checkins');
       if (!res.ok) return;
       const data = await res.json();
-      if (Array.isArray(data)) setCheckins(data);
+      const list: Checkin[] = Array.isArray(data) ? data : [];
+      setCheckins(list);
+      // 7-day trends (oldest first, split per metric) computed here — after the
+      // fetch — so the render path stays pure.
+      const cutoff = Date.now() - 7 * 86400000;
+      const recent = list.filter((c) => c.created_at && new Date(c.created_at).getTime() >= cutoff);
+      const byTime = (a: Checkin, b: Checkin) =>
+        new Date(a.created_at!).getTime() - new Date(b.created_at!).getTime();
+      const sugar = recent
+        .filter((c) => c.metric === 'sugar')
+        .sort(byTime)
+        .map((c) => ({ value: parseFloat(c.value), time: c.created_at }))
+        .filter((p) => !isNaN(p.value));
+      const bp: BpPoint[] = recent
+        .filter((c) => c.metric === 'bp')
+        .sort(byTime)
+        .map((c): BpPoint | null => {
+          const p = parseBP(c.value);
+          return p ? { ...p, time: c.created_at } : null;
+        })
+        .filter((p): p is BpPoint => p !== null);
+      const steps = recent
+        .filter((c) => c.metric === 'steps')
+        .sort(byTime)
+        .map((c) => ({ value: parseFloat(c.value), time: c.created_at }))
+        .filter((p) => !isNaN(p.value));
+      setTrends({ sugar, bp, steps });
     } catch {
       // keep last known state on transient errors
     }
@@ -133,7 +176,6 @@ export default function FamilyDashboard() {
       .then((r) => r.json())
       .then((d: FamilyMember[]) => {
         setFamily(Array.isArray(d) ? d : []);
-        if (Array.isArray(d) && d.length > 0) setSenderId(d[0].id);
       })
       .catch(() => {});
     const id = setInterval(() => {
@@ -156,8 +198,8 @@ export default function FamilyDashboard() {
 
   const sendReply = async () => {
     const text = replyText.trim();
-    if (!text || !senderId) return;
-    const sender = family.find((f) => f.id === senderId);
+    if (!text || !effectiveSenderId) return;
+    const sender = family.find((f) => f.id === effectiveSenderId);
     setReplyStatus('translating');
     setReplyError('');
     try {
@@ -201,6 +243,55 @@ export default function FamilyDashboard() {
     if (!iso) return '';
     return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
+
+  const logout = async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } catch {
+      // best-effort
+    }
+    router.replace('/family/login');
+    router.refresh();
+  };
+
+  // Gate the dashboard: only render once the session has been validated.
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/auth/me')
+      .then(async (r) => {
+        if (!r.ok) throw new Error('unauth');
+        const d = await r.json();
+        if (!cancelled && d.member) setMember(d.member);
+      })
+      .catch(() => {
+        if (!cancelled) router.replace('/family/login');
+      })
+      .finally(() => {
+        if (!cancelled) setAuthChecked(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [router]);
+
+  // Default reply sender: the logged-in member when present, else the first
+  // family member. An explicit selection (senderId) always wins.
+  const effectiveSenderId =
+    senderId ||
+    family.find((x) => x.id === member?.id)?.id ||
+    family[0]?.id ||
+    '';
+
+  if (!authChecked) {
+    return (
+      <div style={{ minHeight: '100vh', background: '#F9F4EA', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-geist-sans), sans-serif' }}>
+        <p style={{ fontSize: 14, color: '#5B5347' }}>Checking your session…</p>
+      </div>
+    );
+  }
+  if (!member) {
+    return null; // redirecting to the login page
+  }
 
   return (
     <div style={{
@@ -275,9 +366,28 @@ export default function FamilyDashboard() {
             Live
           </span>
         </div>
-        <p style={{ fontSize: 13, color: '#5B5347', margin: '0 0 20px' }}>
-          Messages from grandma appear here automatically.
-        </p>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, margin: '0 0 20px' }}>
+          <p style={{ margin: 0, fontSize: 13, color: '#5B5347' }}>
+            Signed in as <strong style={{ color: '#2B2620' }}>{member.name}</strong>
+            {member.relation ? ` (${member.relation})` : ''} — messages from grandma appear here automatically.
+          </p>
+          <button
+            onClick={logout}
+            style={{
+              flexShrink: 0,
+              background: 'none',
+              border: '1px solid rgba(43,38,32,0.20)',
+              borderRadius: 100,
+              padding: '6px 14px',
+              fontSize: 12,
+              fontWeight: 700,
+              color: '#5B5347',
+              cursor: 'pointer',
+            }}
+          >
+            Log out
+          </button>
+        </div>
 
         {/* Reply composer */}
         <div style={{
@@ -286,7 +396,7 @@ export default function FamilyDashboard() {
         }}>
           <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
             <select
-              value={senderId}
+              value={effectiveSenderId}
               onChange={(e) => setSenderId(e.target.value)}
               style={{
                 flex: 1, padding: '10px 12px', fontSize: 13, fontWeight: 600,
@@ -442,6 +552,31 @@ export default function FamilyDashboard() {
           )}
         </div>
 
+        {/* 7-day health trends */}
+        <div style={{
+          background: '#FFFFFF', borderRadius: 20, border: '1px solid rgba(43,38,32,0.10)',
+          boxShadow: '0 6px 20px rgba(34,58,94,0.08)', padding: 18, marginBottom: 20,
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+            <span style={{ fontSize: 16 }}>📈</span>
+            <h2 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#223A5E' }}>7-day trends</h2>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
+            <div>
+              <p style={{ margin: '0 0 6px', fontSize: 12, fontWeight: 700, color: '#5B5347' }}>Sugar (mg/dL)</p>
+              <LineChart data={trends.sugar} color="#C1502E" unit="mg/dL" emptyLabel="No sugar readings yet" />
+            </div>
+            <div>
+              <p style={{ margin: '0 0 6px', fontSize: 12, fontWeight: 700, color: '#5B5347' }}>Blood pressure</p>
+              <BpChart data={trends.bp} emptyLabel="No BP readings yet" />
+            </div>
+            <div>
+              <p style={{ margin: '0 0 6px', fontSize: 12, fontWeight: 700, color: '#5B5347' }}>Steps</p>
+              <LineChart data={trends.steps} color="#E7A33E" unit="steps" emptyLabel="No step readings yet" />
+            </div>
+          </div>
+        </div>
+
         {/* Grandma's memory notes */}
         <div style={{
           background: '#FFFFFF', borderRadius: 20, border: '1px solid rgba(43,38,32,0.10)',
@@ -464,7 +599,7 @@ export default function FamilyDashboard() {
                     <span style={{ fontSize: 16 }}>{meta.icon}</span>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: '#5B5347' }}>{meta.label}</p>
-                      <p style={{ margin: 0, fontSize: 14, color: '#2B2620' }}>{m.content}</p>
+                      <p style={{ margin: 0, fontSize: 14, color: '#2B2620' }}>{m.translated_text || m.content}</p>
                     </div>
                     <button
                       onClick={() => deleteMemory(m.id)}

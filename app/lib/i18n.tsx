@@ -325,6 +325,27 @@ export const DICT: Record<string, Entry> = {
 
   // ---- Health ----
   'health.title': { en: 'Health', ta: 'உடல்நலம்', hi: 'स्वास्थ्य', te: 'ఆరోగ్యం', ml: 'ആരോഗ്യം', kn: 'ಆರೋಗ್ಯ', bn: 'স্বাস্থ্য', mr: 'आरोग्य', gu: 'આરોગ્ય', pa: 'ਸਿਹਤ', od: 'ସ୍ୱାସ୍ଥ୍ୟ' },
+  'health.checkin': { en: "Today's Health Check", ta: 'இன்றைய உடல்நல பரிசோதனை' },
+  'health.checkinDue': { en: 'Due today', ta: 'இன்று பதிவு செய்ய வேண்டும்' },
+  'health.checkinDone': { en: 'All done for today ✓', ta: 'இன்று எல்லாம் முடிந்தது ✓' },
+  'health.checkinSub': {
+    en: 'Please check and update your sugar and blood pressure today — your family sees them live.',
+    ta: 'இன்று உங்கள் சர்க்கரை மற்றும் ரத்த அழுத்தத்தை பரிசோதித்து பதிவு செய்யவும் — உங்கள் குடும்பம் நேரலையில் பார்க்கும்.',
+  },
+  'health.sugarPending': { en: 'Sugar not logged today', ta: 'இன்று சர்க்கரை பதிவு செய்யப்படவில்லை' },
+  'health.bpPending': { en: 'Blood pressure not logged today', ta: 'இன்று ரத்த அழுத்தம் பதிவு செய்யப்படவில்லை' },
+  'health.loggedAt': { en: 'Logged at {t}', ta: '{t} நேரத்தில் பதிவு செய்யப்பட்டது' },
+  'health.save': { en: 'Save', ta: 'சேமி' },
+  'health.saving': { en: 'Saving…', ta: 'சேமிக்கிறது…' },
+  'health.saved': { en: 'Saved ✓', ta: 'சேமிக்கப்பட்டது ✓' },
+  'health.sugarPh': { en: 'e.g. 140', ta: 'எ.கா. 140' },
+  'health.bpSysPh': { en: '120', ta: '120' },
+  'health.bpDiaPh': { en: '80', ta: '80' },
+  'health.checkinWarn': {
+    en: 'This reading is outside your usual range — please rest and take care.',
+    ta: 'இந்த அளவு உங்கள் வழக்கமான வரம்புக்கு வெளியே உள்ளது — தயவுசெய்து ஓய்வெடுத்து கவனமாக இருங்கள்.',
+  },
+  'health.errSave': { en: 'Could not save — please try again.', ta: 'சேமிக்க முடியவில்லை — மீண்டும் முயற்சிக்கவும்.' },
   'health.subtitle': { en: 'Your daily well-being at a glance.', ta: 'உங்கள் தினசரி நல்வாழ்வு ஒரே பார்வையில்.', hi: 'आपकी दैनिक सेहत एक नज़र में।', te: 'మీ రోజువారీ శ్రేయస్సు ఒక చూపులో.', ml: 'നിങ്ങളുടെ ദൈനംദിന ക്ഷേമം ഒറ്റനോട്ടത്തിൽ.', kn: 'ನಿಮ್ಮ ದೈನಂದಿನ ಕ್ಷೇಮವನ್ನು ಒಂದೇ ನೋಟದಲ್ಲಿ.', bn: 'আপনার দৈনিক সুস্থতা এক নজরে।', mr: 'तुमचे दैनंदिन आरोग्य एका दृष्टीक्षेपात.', gu: 'તમારી દૈનિક સુખાકારી એક નજરમાં.', pa: 'ਤੁਹਾਡੀ ਰੋਜ਼ਾਨਾ ਤੰਦਰੁਸਤੀ ਇੱਕ ਨਜ਼ਰ ਵਿੱਚ।', od: 'ଆପଣଙ୍କ ଦୈନିକ ସୁସ୍ଥତା ଏକ ନଜରରେ।' },
   'health.mood': { en: 'How are you feeling today?', ta: 'இன்று நீங்கள் எப்படி உணர்கிறீர்கள்?', hi: 'आज आप कैसा महसूस कर रही हैं?', te: 'ఈరోజు మీరు ఎలా ఉన్నారు?', ml: 'ഇന്ന് നിങ്ങൾക്ക് എങ്ങനെ തോന്നുന്നു?', kn: 'ಇಂದು ನಿಮಗೆ ಹೇಗೆ ಅನಿಸುತ್ತಿದೆ?', bn: 'আজ কেমন অনুভব করছেন?', mr: 'आज तुम्हाला कसे वाटते?', gu: 'આજે તમને કેવું લાગે છે?', pa: 'ਅੱਜ ਤੁਸੀਂ ਕਿਵੇਂ ਮਹਿਸੂਸ ਕਰ ਰਹੇ ਹੋ?', od: 'ଆଜି ଆପଣ କେମିତି ଅନୁଭବ କରୁଛନ୍ତି?' },
   'health.feeling': {

@@ -77,12 +77,29 @@ function buildMessages(
 ) {
   const langName = LANG_NAMES[target] || target;
   const address = ADDRESS[target] || 'Paati';
+  // Ground the model in the real current date (India time, in grandma's
+  // language) so date questions are answered correctly — without this the
+  // model guesses, e.g. claiming "the 30th comes tomorrow" when today is the
+  // 12th.
+  let todayStr = '';
+  try {
+    todayStr = new Date().toLocaleDateString(target || 'ta-IN', {
+      timeZone: 'Asia/Kolkata',
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+  } catch {
+    todayStr = new Date().toDateString();
+  }
   const system = [
     `You are the AI companion in an elder-care app, speaking by voice to an elderly Indian grandmother whom you affectionately call ${address}.`,
     `Reply ONLY in ${langName}, matching the language of the conversation history.`,
     `Keep replies short, warm, and casual — 1 to 3 sentences, like a loving grandchild. No lists, no markdown, no emojis.`,
     `Use short, clean sentences with full stops — the reply is read aloud by a text-to-speech voice, and long run-on sentences sound rushed.`,
     `Always address her as ${address}, never "Grandma".`,
+    `Today's exact date (in her timezone, India) is: ${todayStr}. Use this exact date for anything about today, tomorrow, or any other date — never guess, estimate, or invent dates.`,
     `Be cheerful, patient, and caring. You may tell stories, jokes, or news, or just chat warmly. Stay in character; never mention you are an AI or a model.`,
   ].join('\n');
 
