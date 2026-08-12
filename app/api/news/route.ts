@@ -89,17 +89,21 @@ export async function GET(req: NextRequest) {
       if (!titleMatch) continue;
       let t = cleanTitle(titleMatch[1]);
       if (!t || t.includes('Google')) continue;
-      // Google appends " - Source" (hyphen or en-dash) to headlines — drop it
-      // so TTS reads cleanly. Sources are Latin-script names ("Indian Express",
-      // "DinaMani") while the headline is in the native script, so keep
-      // stripping trailing dash-chunks while the tail looks like a source —
-      // this also handles multi-word editions ("… - Indian Express - Tamil").
-      // A Tamil tail chunk ("… - அன்புமணி") is real attribution, not a source,
-      // so it is kept.
-      const stripTail = (s: string) => s.replace(/\s+[-\u2013\u2014]\s+[^-\u2013\u2014]+$/, '');
+      // Google appends the source name after a dash or a pipe ("… - NDTV",
+      // "… | India News - Hindustan Times") — drop it so TTS reads cleanly.
+      // Sources are Latin-script names ("Indian Express", "DinaMani") while
+      // the headline is in the native script, so keep stripping trailing
+      // separator+chunk groups while the tail chunk is Latin-only — this also
+      // handles multi-word editions ("… - Indian Express - Tamil"). A Tamil
+      // tail chunk ("… - அன்புமணி") is real attribution, not a source, so it
+      // is kept.
+      const stripTail = (s: string) => s.replace(/\s+[-|\u2013\u2014]\s+[^-|\u2013\u2014]+$/, '');
       t = stripTail(t);
-      const tail = t.match(/\s+[-\u2013\u2014]\s+([^-\u2013\u2014]+)$/);
-      if (tail && /^[\x20-\x7E]+$/.test(tail[1].trim())) t = stripTail(t);
+      let tail = t.match(/\s+[-|\u2013\u2014]\s+([^-|\u2013\u2014]+)$/);
+      while (tail && /^[\x20-\x7E]+$/.test(tail[1].trim())) {
+        t = stripTail(t);
+        tail = t.match(/\s+[-|\u2013\u2014]\s+([^-|\u2013\u2014]+)$/);
+      }
       // Strip emoji/control noise but keep letters (incl. Indic combining
       // marks), numbers, punctuation, spaces, currency.
       t = t.replace(/[^\p{L}\p{M}\p{N}\p{P}\p{Z}\p{Sc}]/gu, '').trim();
