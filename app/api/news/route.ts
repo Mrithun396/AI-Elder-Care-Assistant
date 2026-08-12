@@ -72,9 +72,13 @@ export async function GET(req: NextRequest) {
       region = 'India';
     }
 
+    // The feed is ALWAYS the same English source for the region — the stories
+    // must not depend on the listener's language ("same news for everyone,
+    // region only"). The companion translates the headlines into grandma's
+    // language before reading them aloud.
     const url =
       `https://news.google.com/rss/search?q=${encodeURIComponent(`${region} news`)}` +
-      `&hl=${lang}-IN&gl=IN&ceid=IN:${lang}`;
+      '&hl=en-IN&gl=IN&ceid=IN:en';
 
     const res = await fetch(url, { signal: AbortSignal.timeout(TIMEOUT_MS) });
     if (!res.ok) throw new Error(`news feed ${res.status}`);

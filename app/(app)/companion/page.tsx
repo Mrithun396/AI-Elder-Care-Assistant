@@ -654,11 +654,12 @@ export default function CompanionPage() {
     }
   };
 
-  // Read the day's headlines aloud — regional by default (GPS -> state -> Google
-  // News in grandma's language). `national` forces country-wide headlines. The
-  // headlines come back already in grandma's language, so they are spoken as-is
-  // (no re-translation) — but bare numbers ("2026") are converted to spoken
-  // words first, because Sarvam's TTS reads digits one at a time ("2, 0, 2, 6").
+  // Read the day's headlines aloud — regional by default (GPS -> state),
+  // `national` for country-wide. The feed is ALWAYS the same English source
+  // (region-only), so everyone hears the same stories; the headlines are
+  // translated into grandma's language below (English skips translation).
+  // Bare numbers ("2026") are converted to spoken words first, because
+  // Sarvam's TTS reads digits one at a time ("2, 0, 2, 6").
   const readNews = async (national: boolean, mySeq: number) => {
     try {
       const loc = readSavedLocation();
@@ -675,8 +676,35 @@ export default function CompanionPage() {
       if (!res.ok || !Array.isArray(data.headlines) || data.headlines.length === 0) {
         throw new Error(data.error || 'news failed');
       }
+      // The feed is always the same English source (region-only), so everyone
+      // hears the SAME stories — translate the headlines into grandma's
+      // language for reading aloud (parallel, one Sarvam call per headline;
+      // a failed headline falls back to the English text).
+      let headlines = data.headlines;
+      if (langCode !== 'en-IN') {
+        headlines = await Promise.all(
+          data.headlines.map(async (h: string) => {
+            try {
+              const tr = await fetch('/api/translate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  input: h,
+                  source_language_code: 'en-IN',
+                  target_language_code: langCode,
+                }),
+              });
+              const trData = await tr.json();
+              if (tr.ok && trData.translated_text) return trData.translated_text;
+              return h;
+            } catch {
+              return h;
+            }
+          })
+        );
+      }
       const intro = translate(lang, national ? 'comp.newsNationalIntro' : 'comp.newsIntro');
-      let text = `${intro} ${data.headlines.join('. ')}.`;
+      let text = `${intro} ${headlines.join('. ')}.`;
       if (!national) {
         // End the regional report by asking if she wants the national news
         // too — the next spoken utterance is a yes/no answer (handleStop).
