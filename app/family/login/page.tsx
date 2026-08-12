@@ -88,7 +88,7 @@ export default function FamilyLoginPage() {
           </div>
           <h1 style={{ fontSize: 22, fontWeight: 700, color: '#223A5E', margin: 0 }}>Family Portal</h1>
           <p style={{ fontSize: 13, color: '#5B5347', margin: '6px 0 0' }}>
-            Sign in to see grandma&apos;s messages, health and alerts.
+            Sign in to see your grandparent&apos;s messages, health and alerts.
           </p>
         </div>
 
