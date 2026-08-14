@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { MessageCircle, HeartPulse, Siren, Settings as SettingsIcon, LogOut, MapPin } from 'lucide-react';
+import { MessageCircle, HeartPulse, Siren, Settings as SettingsIcon, MapPin } from 'lucide-react';
 
 type Alert = {
   id: string;
@@ -69,14 +69,6 @@ export default function FamilyShell({ children }: { children: React.ReactNode })
     };
   }, []);
 
-  const logout = async () => {
-    try {
-      await fetch('/api/auth/logout', { method: 'POST' });
-    } catch {}
-    router.replace('/family/login');
-    router.refresh();
-  };
-
   return (
     <div className="min-h-dvh bg-canvas text-ink" style={{ fontFamily: 'var(--font-geist-sans), var(--font-tamil), -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif' }}>
       <div className="mx-auto max-w-3xl px-4 pb-16 pt-6 sm:px-6">
@@ -86,18 +78,12 @@ export default function FamilyShell({ children }: { children: React.ReactNode })
             <h1 className="text-2xl font-bold text-brand">Family Dashboard</h1>
             <p className="text-sm text-ink-muted">
               {me?.member ? (
-                <>Signed in as <strong className="text-ink">{me.member.name}</strong>{me.member.relation ? ` (${me.member.relation})` : ''}</>
+                <>Viewing as <strong className="text-ink">{me.member.name}</strong>{me.member.relation ? ` (${me.member.relation})` : ''}</>
               ) : (
                 'Loading…'
               )}
             </p>
           </div>
-          <button
-            onClick={logout}
-            className="flex shrink-0 items-center gap-1.5 rounded-full border border-line px-4 py-2 text-xs font-bold text-ink-muted transition-colors hover:bg-card-soft hover:text-ink"
-          >
-            <LogOut size={14} /> Log out
-          </button>
         </div>
 
         {/* Slim live alert bar — full details on the SOS page */}
