@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
     const { data, error } = await supabase
       .from('messages')
       .insert({
-        sender_name: body.sender_name || 'Grandma',
+        sender_name: body.sender_name || 'Kamala',
         sender_profile_id: body.sender_profile_id ?? null,
         recipient_id: body.recipient_id,
         recipient_profile_id: body.recipient_profile_id ?? null,
