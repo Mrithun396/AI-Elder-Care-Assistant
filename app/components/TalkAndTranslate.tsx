@@ -11,6 +11,9 @@ export default function TalkAndTranslate() {
   const lang = useLang();
   const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([]);
   const [selectedFamily, setSelectedFamily] = useState('');
+  // The grandparent's profile id, so her sent messages are tagged with
+  // sender_profile_id and show up in her own filtered thread.
+  const [senderProfileId, setSenderProfileId] = useState<string | null>(null);
   const [recording, setRecording] = useState(false);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<{ original_text: string; translated_text: string; original_language?: string } | null>(null);
@@ -46,6 +49,12 @@ export default function TalkAndTranslate() {
         if (data.length > 0) setSelectedFamily(data[0].id);
       })
       .catch(() => setError(translate(lang, 'tnt.errFamily')));
+    fetch('/api/auth/me')
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => {
+        if (d?.role === 'grandparent' && d.profile?.id) setSenderProfileId(d.profile.id);
+      })
+      .catch(() => {});
   }, []);
 
   // Declared as a function (hoisted) so the unmount effect above can call it
@@ -195,6 +204,7 @@ export default function TalkAndTranslate() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           recipient_id: selectedFamily,
+          sender_profile_id: senderProfileId,
           original_text: result.original_text,
           original_language: result.original_language,
           translated_text: result.translated_text,

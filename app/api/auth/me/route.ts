@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { resolveSession, setSessionCookie, getServiceClient } from '../../../lib/auth';
+import { resolveSession, setSessionCookie, linkedGrandparentsFor } from '../../../lib/auth';
 
 export async function GET() {
   const resolved = await resolveSession();
@@ -10,19 +10,10 @@ export async function GET() {
   if (resolved.role === 'grandparent') {
     body = { ...base, profile: resolved.profile };
   } else {
-    // Family: include the linked grandparent's name when linked, so the
-    // dashboard can greet them without an extra round-trip.
-    let linkedGrandparent: { id: string; name: string } | null = null;
-    if (resolved.profile?.linked_to) {
-      const supabase = getServiceClient();
-      const { data } = await supabase
-        .from('profiles')
-        .select('id, name')
-        .eq('id', resolved.profile.linked_to)
-        .maybeSingle();
-      if (data) linkedGrandparent = { id: data.id, name: data.name };
-    }
-    body = { ...base, member: resolved.member, profile: resolved.profile, linkedGrandparent };
+    // Family: the grandparents they're linked to (many-to-many), with each
+    // grandma's name + language so replies can be translated for her.
+    const linkedGrandparents = await linkedGrandparentsFor(resolved.userId);
+    body = { ...base, member: resolved.member, profile: resolved.profile, linkedGrandparents };
   }
 
   const res = NextResponse.json(body);

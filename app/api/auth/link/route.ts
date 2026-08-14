@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { resolveSession, setSessionCookie, getServiceClient } from '../../../lib/auth';
+import { resolveSession, setSessionCookie, getServiceClient, linkedGrandparentsFor } from '../../../lib/auth';
 
-// Family members enter the grandparent's link code here. On success their
-// profile's linked_to points at the grandparent's profile id, so the dashboard
-// knows who they belong to.
+// Family members enter the grandparent's link code here. On success a row is
+// added to family_links, so one family account can be linked to MANY
+// grandparents. Falls back to the legacy single profiles.linked_to column if
+// the junction table hasn't been created yet.
 export async function POST(req: NextRequest) {
   const resolved = await resolveSession();
   if (!resolved || resolved.role !== 'family') {
@@ -32,24 +33,35 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'No grandparent found with that code. Double-check it and try again.' }, { status: 404 });
   }
 
-  // Write (or create) the family member's profile with linked_to set. The
-  // profile id is the auth user id; for legacy accounts (no profile row yet)
-  // we create one keyed to the auth user id.
-  const familyId = resolved.userId;
-  const { error: upsertErr } = await supabase.from('profiles').upsert(
-    {
-      id: familyId,
-      role: 'family',
-      name: resolved.member.name,
-      linked_to: grandparent.id,
-    },
+  // Make sure the family profile row exists first — it's the FK target for
+  // family_links (for legacy accounts that predate the profiles table).
+  await supabase.from('profiles').upsert(
+    { id: resolved.userId, role: 'family', name: resolved.member.name },
     { onConflict: 'id' }
   );
-  if (upsertErr) {
+
+  const { error: linkErr } = await supabase
+    .from('family_links')
+    .upsert(
+      { family_id: resolved.userId, grandparent_id: grandparent.id },
+      { onConflict: 'family_id,grandparent_id', ignoreDuplicates: true }
+    );
+  if (linkErr && !/does not exist|could not find/i.test(linkErr.message || '')) {
     return NextResponse.json({ error: 'Could not save the link — please try again.' }, { status: 500 });
   }
+  if (linkErr) {
+    // Junction table missing — legacy single-link fallback.
+    const { error: fallbackErr } = await supabase.from('profiles').upsert(
+      { id: resolved.userId, role: 'family', name: resolved.member.name, linked_to: grandparent.id },
+      { onConflict: 'id' }
+    );
+    if (fallbackErr) {
+      return NextResponse.json({ error: 'Could not save the link — please try again.' }, { status: 500 });
+    }
+  }
 
-  const res = NextResponse.json({ grandparent, linkedTo: grandparent.id });
+  const linkedGrandparents = await linkedGrandparentsFor(resolved.userId);
+  const res = NextResponse.json({ grandparent, linkedGrandparents });
   if (resolved.refreshed) {
     setSessionCookie(res, resolved.session.at, resolved.session.rt);
   }

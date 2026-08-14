@@ -152,6 +152,56 @@ export async function profileForUser(user: {
   return data ?? null;
 }
 
+export type LinkedGrandparent = {
+  id: string;
+  name: string;
+  language?: string | null;
+};
+
+// The grandparents a family account is linked to — many-to-many via the
+// family_links junction table. Falls back to the legacy single
+// profiles.linked_to column when the junction table hasn't been created yet,
+// so the app keeps working before the migration SQL is run.
+export async function linkedGrandparentsFor(userId: string): Promise<LinkedGrandparent[]> {
+  const supabase = getServiceClient();
+  try {
+    const { data: links, error } = await supabase
+      .from('family_links')
+      .select('grandparent_id')
+      .eq('family_id', userId);
+    if (error) {
+      // Table missing (migration not run yet) — degrade to the single link.
+      if (/does not exist|could not find/i.test(error.message || '')) return linkedGrandparentsLegacy(userId);
+      return linkedGrandparentsLegacy(userId);
+    }
+    const ids = (links || []).map((l) => l.grandparent_id);
+    if (ids.length === 0) return [];
+    const { data: gps } = await supabase
+      .from('profiles')
+      .select('id, name, language')
+      .in('id', ids);
+    return (gps || []).map((g) => ({ id: g.id, name: g.name, language: g.language ?? null }));
+  } catch {
+    return linkedGrandparentsLegacy(userId);
+  }
+}
+
+async function linkedGrandparentsLegacy(userId: string): Promise<LinkedGrandparent[]> {
+  const supabase = getServiceClient();
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('linked_to')
+    .eq('id', userId)
+    .maybeSingle();
+  if (!profile?.linked_to) return [];
+  const { data: gp } = await supabase
+    .from('profiles')
+    .select('id, name, language')
+    .eq('id', profile.linked_to)
+    .maybeSingle();
+  return gp ? [{ id: gp.id, name: gp.name, language: gp.language ?? null }] : [];
+}
+
 type ResolvedUser = {
   user: { id: string; email?: string; user_metadata?: Record<string, unknown> | null };
   session: SessionPayload;
