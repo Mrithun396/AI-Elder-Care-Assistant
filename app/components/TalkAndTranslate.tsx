@@ -1,6 +1,7 @@
 'use client';
 import { useState, useRef, useEffect } from 'react';
 import { T, fmt, translate, useLang } from '../lib/i18n';
+import { grandmaName } from '../lib/langs';
 
 type FamilyMember = { id: string; name: string; relation: string };
 
@@ -205,6 +206,11 @@ export default function TalkAndTranslate() {
         body: JSON.stringify({
           recipient_id: selectedFamily,
           sender_profile_id: senderProfileId,
+          // The real name (e.g. "Rani") — without it the API stores the
+          // "Grandma" fallback, which mismatches the browser's stored name
+          // and makes grandma's own messages look like incoming replies
+          // (wrong alignment + the reply notifier reads them aloud).
+          sender_name: grandmaName(),
           original_text: result.original_text,
           original_language: result.original_language,
           translated_text: result.translated_text,

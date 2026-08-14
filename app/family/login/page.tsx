@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
@@ -12,6 +12,23 @@ export default function FamilyLoginPage() {
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+
+  // Already signed in as a family member? Go straight to the dashboard.
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/auth/me')
+      .then(async (r) => {
+        if (!r.ok) throw new Error('not signed in');
+        const d = await r.json();
+        if (!cancelled && d.role === 'family') {
+          router.replace('/family');
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [router]);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();

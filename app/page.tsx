@@ -1,33 +1,11 @@
 'use client';
-import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { HeartHandshake, UserRound, Users, ChevronRight } from 'lucide-react';
 
+// Landing page — always show both options so the visitor chooses their side.
+// Signed-in users are routed by the login pages themselves (e.g. a family
+// member clicking through lands straight in the dashboard).
 export default function RoleChooserPage() {
-  const router = useRouter();
-  const [checking, setChecking] = useState(true);
-
-  // Already signed in? Send each role to their own side of the app.
-  useEffect(() => {
-    let cancelled = false;
-    fetch('/api/auth/me')
-      .then(async (r) => {
-        if (!r.ok) throw new Error('not signed in');
-        const d = await r.json();
-        if (cancelled) return;
-        if (d.role === 'grandparent') router.replace('/home');
-        else if (d.role === 'family') router.replace('/family');
-      })
-      .catch(() => {})
-      .finally(() => {
-        if (!cancelled) setChecking(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [router]);
-
   return (
     <div
       style={{
@@ -66,10 +44,7 @@ export default function RoleChooserPage() {
           </p>
         </div>
 
-        {checking ? (
-          <p style={{ textAlign: 'center', fontSize: 14, color: '#8A8175' }}>Checking…</p>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <Link
               href="/grandparent/login"
               style={{
@@ -163,8 +138,7 @@ export default function RoleChooserPage() {
               </div>
               <ChevronRight size={20} style={{ color: '#8A8175', flexShrink: 0 }} />
             </Link>
-          </div>
-        )}
+        </div>
       </div>
     </div>
   );
