@@ -158,32 +158,97 @@ export type LinkedGrandparent = {
   language?: string | null;
 };
 
-// The grandparents a family account is linked to — many-to-many via the
-// family_links junction table. Falls back to the legacy single
-// profiles.linked_to column when the junction table hasn't been created yet,
-// so the app keeps working before the migration SQL is run.
+// Family links carry a status ('pending' until grandma confirms, then
+// 'active'). The column may not exist yet if the migration hasn't been run —
+// these helpers detect that and treat every link as active.
+type LinkRow = { grandparent_id: string; status?: string | null };
+
+// The grandparents a family account is ACTIVELY linked to — many-to-many via
+// the family_links junction table. Pending (unconfirmed) links are excluded.
+// Falls back to the legacy single profiles.linked_to column when the junction
+// table hasn't been created yet.
 export async function linkedGrandparentsFor(userId: string): Promise<LinkedGrandparent[]> {
   const supabase = getServiceClient();
   try {
     const { data: links, error } = await supabase
       .from('family_links')
-      .select('grandparent_id')
+      .select('grandparent_id, status')
       .eq('family_id', userId);
     if (error) {
-      // Table missing (migration not run yet) — degrade to the single link.
       if (/does not exist|could not find/i.test(error.message || '')) return linkedGrandparentsLegacy(userId);
+      // Table exists but the status column doesn't — treat all as active.
+      if (/status|column/i.test(error.message || '')) {
+        const { data: plain } = await supabase.from('family_links').select('grandparent_id').eq('family_id', userId);
+        return resolveGrandparents((plain || []).map((l) => ({ grandparent_id: l.grandparent_id })));
+      }
       return linkedGrandparentsLegacy(userId);
     }
-    const ids = (links || []).map((l) => l.grandparent_id);
-    if (ids.length === 0) return [];
-    const { data: gps } = await supabase
-      .from('profiles')
-      .select('id, name, language')
-      .in('id', ids);
-    return (gps || []).map((g) => ({ id: g.id, name: g.name, language: g.language ?? null }));
+    return resolveGrandparents((links || []).filter((l) => !l.status || l.status === 'active'));
   } catch {
     return linkedGrandparentsLegacy(userId);
   }
+}
+
+// Pending (awaiting grandma's confirmation) links, from the family's view.
+export async function pendingGrandparentsFor(userId: string): Promise<LinkedGrandparent[]> {
+  const supabase = getServiceClient();
+  try {
+    const { data: links, error } = await supabase
+      .from('family_links')
+      .select('grandparent_id, status')
+      .eq('family_id', userId);
+    if (error || !links) return [];
+    return resolveGrandparents(links.filter((l: LinkRow) => l.status === 'pending'));
+  } catch {
+    return [];
+  }
+}
+
+async function resolveGrandparents(rows: LinkRow[]): Promise<LinkedGrandparent[]> {
+  const supabase = getServiceClient();
+  const ids = rows.map((l) => l.grandparent_id);
+  if (ids.length === 0) return [];
+  const { data: gps } = await supabase
+    .from('profiles')
+    .select('id, name, language')
+    .in('id', ids);
+  return (gps || []).map((g) => ({ id: g.id, name: g.name, language: g.language ?? null }));
+}
+
+export type LinkedFamilyMember = { id: string; name: string };
+
+// From a grandparent's view: the family members actively linked to them, and
+// the pending link requests waiting for their confirmation.
+export async function familyConnectionsFor(grandparentId: string): Promise<{
+  active: LinkedFamilyMember[];
+  pending: LinkedFamilyMember[];
+}> {
+  const supabase = getServiceClient();
+  try {
+    const { data, error } = await supabase
+      .from('family_links')
+      .select('family_id, status')
+      .eq('grandparent_id', grandparentId);
+    if (error || !data) return { active: [], pending: [] };
+    const statusesKnown = data.some((r) => typeof r.status === 'string');
+    const activeIds = statusesKnown
+      ? data.filter((r) => r.status === 'active').map((r) => r.family_id)
+      : data.map((r) => r.family_id);
+    const pendingIds = statusesKnown ? data.filter((r) => r.status === 'pending').map((r) => r.family_id) : [];
+    return {
+      active: await resolveFamilyMembers(activeIds),
+      pending: await resolveFamilyMembers(pendingIds),
+    };
+  } catch {
+    return { active: [], pending: [] };
+  }
+}
+
+async function resolveFamilyMembers(ids: string[]): Promise<LinkedFamilyMember[]> {
+  const supabase = getServiceClient();
+  if (ids.length === 0) return [];
+  const { data: profs } = await supabase.from('profiles').select('id, name').in('id', ids);
+  return (profs || []).map((p) => ({ id: p.id, name: p.name }));
 }
 
 async function linkedGrandparentsLegacy(userId: string): Promise<LinkedGrandparent[]> {

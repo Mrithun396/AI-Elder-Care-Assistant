@@ -20,6 +20,10 @@ export default function SettingsPage() {
   // share it whenever a family member wants to link to her.
   const [familyCode, setFamilyCode] = useState<string | null>(null);
   const [copiedCode, setCopiedCode] = useState(false);
+  // Who's connected to grandma: active linked family + pending link requests
+  // waiting for her confirmation.
+  const [linkedFamily, setLinkedFamily] = useState<{ id: string; name: string }[]>([]);
+  const [pendingFamily, setPendingFamily] = useState<{ id: string; name: string }[]>([]);
   // Which voice is currently being previewed (its id, or null).
   const [previewing, setPreviewing] = useState<string | null>(null);
   const [previewErr, setPreviewErr] = useState('');
@@ -28,6 +32,7 @@ export default function SettingsPage() {
   const previewSeqRef = useRef(0);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setTheme(document.documentElement.classList.contains('dark') ? 'dark' : 'light');
     try {
       const saved = localStorage.getItem('bridge-lang');
@@ -44,8 +49,18 @@ export default function SettingsPage() {
       .catch(() => {});
     fetch('/api/auth/me')
       .then((r) => (r.ok ? r.json() : null))
-      .then((d: { role?: string; profile?: { link_code?: string | null } } | null) => {
-        if (d?.role === 'grandparent' && d.profile?.link_code) setFamilyCode(d.profile.link_code);
+      .then((d: {
+        role?: string;
+        profile?: { link_code?: string | null };
+        linkedFamily?: { id: string; name: string }[];
+        pendingFamily?: { id: string; name: string }[];
+      } | null) => {
+        if (!d) return;
+        if (d.role === 'grandparent') {
+          if (d.profile?.link_code) setFamilyCode(d.profile.link_code);
+          setLinkedFamily(Array.isArray(d.linkedFamily) ? d.linkedFamily : []);
+          setPendingFamily(Array.isArray(d.pendingFamily) ? d.pendingFamily : []);
+        }
       })
       .catch(() => {});
     return () => stopSpeech();
@@ -103,6 +118,23 @@ export default function SettingsPage() {
       if (mySeq !== previewSeqRef.current) return;
       setPreviewing(null);
       setPreviewErr(translate(uiLang, 'messages.ttsError'));
+    }
+  };
+
+  const respondToRequest = async (familyId: string, action: 'confirm' | 'decline' | 'remove') => {
+    const url = action === 'confirm' ? '/api/auth/confirm-link' : action === 'decline' ? '/api/auth/reject-link' : '/api/auth/unlink';
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(action === 'remove' ? { familyId } : { familyId }),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(d.error || 'Could not update the link');
+      if (Array.isArray(d.linkedFamily)) setLinkedFamily(d.linkedFamily);
+      if (Array.isArray(d.pendingFamily)) setPendingFamily(d.pendingFamily);
+    } catch {
+      // best-effort — settings will re-fetch on next visit
     }
   };
 
@@ -247,6 +279,66 @@ export default function SettingsPage() {
             ))
           )}
         </div>
+      </section>
+
+      {/* Family connections — who's linked to grandma + requests to confirm */}
+      <section className="rounded-3xl border border-line bg-card p-4 shadow-soft">
+        <p className="mb-1 flex items-center gap-3 text-sm font-semibold text-ink">
+          <HeartHandshake size={18} className="text-accent" /> <T k="settings.connections" />
+        </p>
+        {pendingFamily.length > 0 && (
+          <p className="mb-3 mt-1 text-xs font-semibold text-terra">
+            <T k="settings.pendingRequests" /> — {pendingFamily.map((p) => p.name).join(', ')}
+          </p>
+        )}
+        {linkedFamily.length === 0 && pendingFamily.length === 0 ? (
+          <p className="rounded-2xl bg-card-soft px-4 py-3 text-sm text-ink-muted">
+            {translate(uiLang, 'settings.noConnections')}
+          </p>
+        ) : (
+          <div className="space-y-2">
+            {linkedFamily.map((m) => (
+              <div key={m.id} className="flex items-center gap-3 rounded-2xl bg-card-soft px-4 py-3">
+                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-sage-soft text-sm font-bold text-sage">
+                  {m.name[0]}
+                </span>
+                <p className="text-sm font-semibold text-ink">{m.name}</p>
+                <span className="ml-auto rounded-full bg-sage-soft px-2.5 py-0.5 text-[11px] font-semibold text-sage">
+                  ✓
+                </span>
+                <button
+                  onClick={() => respondToRequest(m.id, 'remove')}
+                  className="rounded-full border border-line px-3 py-1 text-[11px] font-bold text-ink-muted transition-colors hover:border-terra hover:text-terra"
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+            {pendingFamily.map((m) => (
+              <div key={m.id} className="flex items-center gap-3 rounded-2xl border border-terra/30 bg-terra-soft px-4 py-3">
+                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-terra-soft text-sm font-bold text-terra">
+                  {m.name[0]}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold text-ink">{m.name}</p>
+                  <p className="text-[11px] font-semibold text-terra"><T k="settings.pendingRequests" /></p>
+                </div>
+                <button
+                  onClick={() => respondToRequest(m.id, 'confirm')}
+                  className="shrink-0 rounded-full bg-sage px-4 py-1.5 text-xs font-bold text-white transition-opacity hover:opacity-90"
+                >
+                  <T k="settings.confirm" />
+                </button>
+                <button
+                  onClick={() => respondToRequest(m.id, 'decline')}
+                  className="shrink-0 rounded-full border border-line px-4 py-1.5 text-xs font-bold text-ink-muted transition-colors hover:border-terra hover:text-terra"
+                >
+                  <T k="settings.decline" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
       </section>
 
       {/* Dark mode */}

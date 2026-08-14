@@ -242,12 +242,12 @@ export default function FamilyMessagesPage() {
                           <p className="text-[11px] text-ink-muted">{fmtTime(m.created_at)}</p>
                         </div>
                         <div
-                          className={`inline-block max-w-full rounded-2xl border border-line bg-card px-4 py-3 text-sm text-ink ${isGrandma ? 'rounded-tl-sm' : 'rounded-tr-sm'}`}
+                          className={`block w-fit max-w-full rounded-2xl border border-line bg-card px-4 py-3 text-sm text-ink ${isGrandma ? 'rounded-tl-sm' : 'rounded-tr-sm'}`}
                         >
                           {m.original_text}
                         </div>
                         <div
-                          className={`inline-block max-w-full rounded-2xl px-4 py-3 text-left text-sm text-white ${isGrandma ? 'rounded-tl-sm bg-brand' : 'rounded-tr-sm bg-sage'}`}
+                          className={`block w-fit max-w-full rounded-2xl px-4 py-3 text-left text-sm text-white ${isGrandma ? 'rounded-tl-sm bg-brand' : 'rounded-tr-sm bg-sage'}`}
                         >
                           <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-white/60">
                             Translated
