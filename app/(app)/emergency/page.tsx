@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Siren, Phone, User, PhoneCall, CheckCircle2 } from 'lucide-react';
 import { T, translate, fmt, useLang } from '../../lib/i18n';
-import { grandmaLangCode, grandmaVoice } from '../../lib/langs';
+import { grandmaName, grandmaLangCode, grandmaVoice } from '../../lib/langs';
 import { saveLocation } from '../../lib/location';
 import { playSpeech, stopSpeech } from '../../lib/audio';
 
@@ -296,7 +296,7 @@ export default function EmergencyPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          sender_name: 'Kamala',
+          sender_name: grandmaName(),
           message: 'Emergency! I need help.',
           location: locationRef.current,
         }),

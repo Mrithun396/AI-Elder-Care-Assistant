@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
     const { data, error } = await supabase
       .from('alerts')
       .insert({
-        sender_name: body.sender_name || 'Kamala',
+        sender_name: body.sender_name || 'Grandma',
         message: body.message || 'Emergency! I need help.',
         status: 'active',
         location: body.location || null, // Google Maps link from geolocation

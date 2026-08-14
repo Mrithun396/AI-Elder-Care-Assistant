@@ -65,6 +65,12 @@ export default function GrandparentLoginPage() {
       try {
         if (profile.language) localStorage.setItem('bridge-lang', profile.language);
       } catch {}
+      // Seed the grandparent's real name so the app never shows a hardcoded
+      // persona name — the sidebar, message sender and reply detection all
+      // read it from here.
+      try {
+        if (profile.name) localStorage.setItem('bridge-grandma-name', profile.name);
+      } catch {}
       if (mode === 'signup') {
         setJustCreated(profile);
       } else {
@@ -299,7 +305,7 @@ export default function GrandparentLoginPage() {
                     id="gp-name"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    placeholder="e.g. Kamala"
+                    placeholder="e.g. Meena"
                     style={inputStyle}
                   />
                 </div>

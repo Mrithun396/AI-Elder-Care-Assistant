@@ -2,7 +2,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { Volume2 } from 'lucide-react';
 import TalkAndTranslate from '../../components/TalkAndTranslate';
-import { GRANDMA_NAME, grandmaLangCode, grandmaVoice, nativeName } from '../../lib/langs';
+import { grandmaName, grandmaLangCode, grandmaVoice, nativeName } from '../../lib/langs';
 import { T, translate, useLang } from '../../lib/i18n';
 import { playSpeech, stopSpeech } from '../../lib/audio';
 
@@ -32,7 +32,7 @@ export default function MessagesPage() {
   // stale and must not play or touch UI state — "last tap wins".
   const speakSeq = useRef(0);
 
-  const isReply = (m: Message) => m.sender_name !== GRANDMA_NAME;
+  const isReply = (m: Message) => m.sender_name !== grandmaName();
 
   const speak = useCallback(async (m: Message) => {
     if (speakingIdRef.current === m.id) return;
