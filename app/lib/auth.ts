@@ -175,12 +175,14 @@ export async function linkedGrandparentsFor(userId: string): Promise<LinkedGrand
       .select('grandparent_id, status')
       .eq('family_id', userId);
     if (error) {
-      if (/does not exist|could not find/i.test(error.message || '')) return linkedGrandparentsLegacy(userId);
-      // Table exists but the status column doesn't — treat all as active.
+      // The status column may be missing (migration not run) — treat all links
+      // as active. Check this BEFORE the table-missing fallback: PostgREST's
+      // "column ... does not exist" message also contains "does not exist".
       if (/status|column/i.test(error.message || '')) {
         const { data: plain } = await supabase.from('family_links').select('grandparent_id').eq('family_id', userId);
         return resolveGrandparents((plain || []).map((l) => ({ grandparent_id: l.grandparent_id })));
       }
+      // family_links table itself doesn't exist yet — legacy single-link column.
       return linkedGrandparentsLegacy(userId);
     }
     return resolveGrandparents((links || []).filter((l) => !l.status || l.status === 'active'));
