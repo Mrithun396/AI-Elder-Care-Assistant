@@ -1,16 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServiceClient, setSessionCookie } from '../../../lib/auth';
+import { getServiceClient, setSessionCookie, generateLinkCode } from '../../../lib/auth';
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}));
     const name = String(body.name || '').trim();
-    const relation = String(body.relation || '').trim();
     const email = String(body.email || '').trim().toLowerCase();
     const password = String(body.password || '');
+    const language = String(body.language || 'ta-IN').trim();
 
-    if (!name || !relation) {
-      return NextResponse.json({ error: 'Name and relation are required.' }, { status: 400 });
+    if (!name) {
+      return NextResponse.json({ error: 'Please enter your name.' }, { status: 400 });
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return NextResponse.json({ error: 'Please enter a valid email address.' }, { status: 400 });
@@ -21,17 +21,17 @@ export async function POST(req: NextRequest) {
 
     const supabase = getServiceClient();
 
-    // 0. Make sure the family_members table can hold the link BEFORE creating
-    // the auth user — otherwise a missing column would leave an orphan account.
-    const probe = await supabase.from('family_members').select('user_id').limit(1);
+    // 0. Make sure the profiles table can hold the row BEFORE creating the
+    // auth user — otherwise a missing table would leave an orphan account.
+    const probe = await supabase.from('profiles').select('id').limit(1);
     if (probe.error) {
       const probeMsg = (probe.error.message || '').toLowerCase();
-      if (probeMsg.includes('user_id') || probeMsg.includes('does not exist')) {
+      if (probeMsg.includes('does not exist') || probeMsg.includes('could not find')) {
         return NextResponse.json({
-          error: 'Setup needed: run `alter table family_members add column user_id uuid;` in the Supabase SQL editor, then try again.',
+          error: 'Setup needed: create a `profiles` table (id, role, name, language, link_code, linked_to) in the Supabase SQL editor, then try again.',
         }, { status: 500 });
       }
-      return NextResponse.json({ error: 'Could not reach the family members list: ' + probe.error.message }, { status: 500 });
+      return NextResponse.json({ error: 'Could not reach the profiles table: ' + probe.error.message }, { status: 500 });
     }
 
     // 1. Create the auth user (auto-confirmed so they can sign in immediately).
@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
       email,
       password,
       email_confirm: true,
-      user_metadata: { name, relation, role: 'family' },
+      user_metadata: { name, role: 'grandparent' },
     });
     if (createErr || !created.user) {
       const msg = (createErr?.message || '').toLowerCase();
@@ -49,36 +49,30 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: createErr?.message || 'Could not create the account.' }, { status: 500 });
     }
 
-    // 2. Link it to a family_members row so replies come from a real member.
-    const { data: member, error: insertErr } = await supabase
-      .from('family_members')
-      .insert({ user_id: created.user.id, name, relation, email })
-      .select('id, name, relation, email')
-      .maybeSingle();
+    // 2. Insert the profile row with a freshly generated family link code.
+    const linkCode = await generateLinkCode();
+    const { error: insertErr } = await supabase
+      .from('profiles')
+      .insert({ id: created.user.id, role: 'grandparent', name, language, link_code: linkCode });
     if (insertErr) {
+      // Clean up the orphan auth user so the email isn't locked to a broken account.
+      await supabase.auth.admin.deleteUser(created.user.id);
       const msg = (insertErr.message || '').toLowerCase();
-      if (msg.includes('user_id') || msg.includes('does not exist')) {
+      if (msg.includes('does not exist') || msg.includes('could not find')) {
         return NextResponse.json({
-          error: 'Setup needed: run `alter table family_members add column user_id uuid;` in the Supabase SQL editor, then try again.',
+          error: 'Setup needed: create a `profiles` table (id, role, name, language, link_code, linked_to) in the Supabase SQL editor, then try again.',
         }, { status: 500 });
       }
-      return NextResponse.json({ error: 'Account created but could not be linked to the family list: ' + insertErr.message }, { status: 500 });
+      return NextResponse.json({ error: 'Account created but could not be saved: ' + insertErr.message }, { status: 500 });
     }
-
-    // 2.5 Best-effort: write the profiles row (role=family) so family members
-    // can link to a grandparent. Best-effort on purpose — family auth stays
-    // on family_members, so a failure here must never block signup.
-    await supabase.from('profiles').upsert(
-      { id: created.user.id, role: 'family', name },
-      { onConflict: 'id' }
-    );
 
     // 3. Sign them in and hand the browser the session cookie.
     const { data: session, error: signInErr } = await supabase.auth.signInWithPassword({ email, password });
     if (signInErr || !session.session) {
       return NextResponse.json({ error: 'Account created — please sign in manually.' }, { status: 500 });
     }
-    const res = NextResponse.json({ member });
+    const profile = { id: created.user.id, role: 'grandparent' as const, name, language, link_code: linkCode, linked_to: null };
+    const res = NextResponse.json({ profile });
     setSessionCookie(res, session.session.access_token, session.session.refresh_token);
     return res;
   } catch (err: unknown) {

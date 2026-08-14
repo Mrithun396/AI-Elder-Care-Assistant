@@ -75,6 +75,12 @@ const CATEGORY_META: Record<string, { label: string; icon: string }> = {
 export default function FamilyDashboard() {
   const router = useRouter();
   const [member, setMember] = useState<FamilyMember | null>(null);
+  // Profile/link state from /api/auth/me — used to show the grandparent-linking
+  // card and who this family account belongs to.
+  const [linkedGrandparent, setLinkedGrandparent] = useState<{ id: string; name: string } | null>(null);
+  const [linkCode, setLinkCode] = useState('');
+  const [linkBusy, setLinkBusy] = useState(false);
+  const [linkError, setLinkError] = useState('');
   const [authChecked, setAuthChecked] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [alert, setAlert] = useState<Alert | null>(null);
@@ -269,7 +275,10 @@ export default function FamilyDashboard() {
       .then(async (r) => {
         if (!r.ok) throw new Error('unauth');
         const d = await r.json();
-        if (!cancelled && d.member) setMember(d.member);
+        if (!cancelled) {
+          if (d.member) setMember(d.member);
+          if (d.linkedGrandparent) setLinkedGrandparent(d.linkedGrandparent);
+        }
       })
       .catch(() => {
         if (!cancelled) router.replace('/family/login');
@@ -281,6 +290,29 @@ export default function FamilyDashboard() {
       cancelled = true;
     };
   }, [router]);
+
+  // Enter grandma's family code to link this family account to her.
+  const linkToGrandparent = async () => {
+    const code = linkCode.trim().toUpperCase();
+    if (!code || linkBusy) return;
+    setLinkBusy(true);
+    setLinkError('');
+    try {
+      const res = await fetch('/api/auth/link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ linkCode: code }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Could not link — please try again.');
+      setLinkedGrandparent(data.grandparent);
+      setLinkCode('');
+    } catch (err: unknown) {
+      setLinkError(err instanceof Error ? err.message : 'Could not link — please try again.');
+    } finally {
+      setLinkBusy(false);
+    }
+  };
 
   // Default reply sender: the logged-in member when present, else the first
   // family member. An explicit selection (senderId) always wins.
@@ -396,6 +428,62 @@ export default function FamilyDashboard() {
             Log out
           </button>
         </div>
+
+        {/* Linked grandparent / family code entry */}
+        {linkedGrandparent ? (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 10,
+            background: '#EFF5EE', border: '1px solid rgba(110,143,107,0.40)',
+            borderRadius: 16, padding: '12px 16px', marginBottom: 20,
+          }}>
+            <span style={{ fontSize: 18 }}>👵</span>
+            <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#2B2620' }}>
+              Linked to <span style={{ color: '#6E8F6B' }}>{linkedGrandparent.name}</span>
+            </p>
+            <span style={{ marginLeft: 'auto', fontSize: 10, fontWeight: 800, color: '#6E8F6B', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              ✓ Linked
+            </span>
+          </div>
+        ) : (
+          <div style={{
+            background: '#FFFFFF', borderRadius: 16, border: '1px dashed rgba(43,38,32,0.25)',
+            padding: '14px 16px', marginBottom: 20,
+          }}>
+            <p style={{ margin: '0 0 8px', fontSize: 13, fontWeight: 700, color: '#2B2620' }}>
+              👵 Link to your grandparent
+            </p>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input
+                value={linkCode}
+                onChange={(e) => setLinkCode(e.target.value.toUpperCase())}
+                onKeyDown={(e) => e.key === 'Enter' && linkToGrandparent()}
+                placeholder="Family code — e.g. 8YEVNS"
+                style={{
+                  flex: 1, padding: '10px 12px', fontSize: 14, fontWeight: 700, letterSpacing: '0.12em',
+                  borderRadius: 12, border: '1px solid rgba(43,38,32,0.15)', background: '#F9F4EA',
+                  color: '#2B2620', textTransform: 'uppercase',
+                }}
+              />
+              <button
+                onClick={linkToGrandparent}
+                disabled={linkBusy || !linkCode.trim()}
+                style={{
+                  padding: '10px 18px', background: '#6E8F6B', color: 'white', border: 'none',
+                  borderRadius: 100, fontSize: 13, fontWeight: 700, cursor: 'pointer', flexShrink: 0,
+                  opacity: linkBusy || !linkCode.trim() ? 0.6 : 1,
+                }}
+              >
+                {linkBusy ? 'Linking…' : 'Link'}
+              </button>
+            </div>
+            {linkError && (
+              <p style={{ color: '#C1502E', fontSize: 12, marginTop: 8, fontWeight: 600 }}>{linkError}</p>
+            )}
+            <p style={{ fontSize: 11, color: '#8A8175', marginTop: 8 }}>
+              Ask your grandparent for their family code (shown when they created their account, and in their Settings).
+            </p>
+          </div>
+        )}
 
         {/* Reply composer */}
         <div style={{

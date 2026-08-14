@@ -15,7 +15,51 @@ export type FamilyMember = {
   email?: string | null;
 };
 
+// A row from the `profiles` table — the identity record for BOTH roles.
+// Grandparent profiles carry a generated link_code that family members enter
+// to link their account to the grandparent (linked_to = grandparent profile id).
+export type Profile = {
+  id: string;
+  role: 'grandparent' | 'family';
+  name: string;
+  language?: string | null;
+  link_code?: string | null;
+  linked_to?: string | null;
+  created_at?: string;
+};
+
+export type SessionRole = 'grandparent' | 'family';
+
 type SessionPayload = { at: string; rt: string };
+
+// Unambiguous code alphabet — no 0/O/1/I so grandma can read it aloud.
+const LINK_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+const LINK_CODE_LENGTH = 6;
+
+// Generate a fresh 6-character link code that isn't already used by another
+// grandparent profile (collisions are rare; retry a few times to be safe).
+export async function generateLinkCode(): Promise<string> {
+  const supabase = getServiceClient();
+  for (let attempt = 0; attempt < 5; attempt++) {
+    let code = '';
+    for (let i = 0; i < LINK_CODE_LENGTH; i++) {
+      code += LINK_CODE_ALPHABET[Math.floor(Math.random() * LINK_CODE_ALPHABET.length)];
+    }
+    const { data } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('role', 'grandparent')
+      .eq('link_code', code)
+      .maybeSingle();
+    if (!data) return code;
+  }
+  // Last resort: accept a possible collision (still virtually unique).
+  let code = '';
+  for (let i = 0; i < LINK_CODE_LENGTH; i++) {
+    code += LINK_CODE_ALPHABET[Math.floor(Math.random() * LINK_CODE_ALPHABET.length)];
+  }
+  return code;
+}
 
 function getServiceClient(): SupabaseClient {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -94,6 +138,53 @@ export async function memberForUser(user: {
   };
 }
 
+// Resolve the profiles row for an auth user (or null for legacy accounts that
+// predate the profiles table — e.g. old family members).
+export async function profileForUser(user: {
+  id: string;
+}): Promise<Profile | null> {
+  const supabase = getServiceClient();
+  const { data } = await supabase
+    .from('profiles')
+    .select('id, role, name, language, link_code, linked_to, created_at')
+    .eq('id', user.id)
+    .maybeSingle();
+  return data ?? null;
+}
+
+type ResolvedUser = {
+  user: { id: string; email?: string; user_metadata?: Record<string, unknown> | null };
+  session: SessionPayload;
+  refreshed: boolean;
+};
+
+// Validate the session cookie (refreshing the tokens when the access token has
+// expired). Shared by the family and grandparent resolvers below.
+async function resolveUser(payload: SessionPayload): Promise<ResolvedUser | null> {
+  const supabase = getServiceClient();
+
+  try {
+    const { data, error } = await supabase.auth.getUser(payload.at);
+    if (data?.user && !error) {
+      return { user: data.user, session: payload, refreshed: false };
+    }
+  } catch {
+    // fall through to refresh
+  }
+
+  try {
+    const { data, error } = await supabase.auth.refreshSession({ refresh_token: payload.rt });
+    if (error || !data.session || !data.user) return null;
+    return {
+      user: data.user,
+      session: { at: data.session.access_token, rt: data.session.refresh_token },
+      refreshed: true,
+    };
+  } catch {
+    return null;
+  }
+}
+
 // Validate the session cookie (refreshing the tokens when the access token
 // has expired). Returns the logged-in family member plus the session tokens
 // to persist — the caller decides whether to write the refreshed cookie.
@@ -104,28 +195,58 @@ export async function resolveFamilySession(): Promise<{
 } | null> {
   const payload = await readSessionCookie();
   if (!payload) return null;
-  const supabase = getServiceClient();
+  const resolved = await resolveUser(payload);
+  if (!resolved) return null;
+  return {
+    member: await memberForUser(resolved.user),
+    session: resolved.session,
+    refreshed: resolved.refreshed,
+  };
+}
 
-  try {
-    const { data, error } = await supabase.auth.getUser(payload.at);
-    if (data?.user && !error) {
-      return { member: await memberForUser(data.user), session: payload, refreshed: false };
+// Role-aware session resolution used by /api/auth/me and the (app) layout gate.
+// A grandparent session resolves to their profile; any other session resolves
+// to the family member shape (with the profile attached when one exists).
+export async function resolveSession(): Promise<
+  | {
+      role: 'grandparent';
+      userId: string;
+      profile: Profile;
+      session: SessionPayload;
+      refreshed: boolean;
     }
-  } catch {
-    // fall through to refresh
-  }
-
-  try {
-    const { data, error } = await supabase.auth.refreshSession({ refresh_token: payload.rt });
-    if (error || !data.session || !data.user) return null;
+  | {
+      role: 'family';
+      userId: string;
+      member: FamilyMember;
+      profile: Profile | null;
+      session: SessionPayload;
+      refreshed: boolean;
+    }
+  | null
+> {
+  const payload = await readSessionCookie();
+  if (!payload) return null;
+  const resolved = await resolveUser(payload);
+  if (!resolved) return null;
+  const profile = await profileForUser(resolved.user);
+  if (profile?.role === 'grandparent') {
     return {
-      member: await memberForUser(data.user),
-      session: { at: data.session.access_token, rt: data.session.refresh_token },
-      refreshed: true,
+      role: 'grandparent',
+      userId: resolved.user.id,
+      profile,
+      session: resolved.session,
+      refreshed: resolved.refreshed,
     };
-  } catch {
-    return null;
   }
+  return {
+    role: 'family',
+    userId: resolved.user.id,
+    member: await memberForUser(resolved.user),
+    profile,
+    session: resolved.session,
+    refreshed: resolved.refreshed,
+  };
 }
 
 export { getServiceClient };

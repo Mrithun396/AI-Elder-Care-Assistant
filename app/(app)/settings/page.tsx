@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { Languages, Volume2, Users, Moon, Info, ChevronRight, HeartHandshake, Play, Square } from 'lucide-react';
+import { Languages, Volume2, Users, Moon, Info, ChevronRight, HeartHandshake, Play, Square, KeyRound } from 'lucide-react';
 import { LANGS, VOICES, codeForLang, grandmaLangCode, voiceLabel } from '../../lib/langs';
 import { T, translate, useLang } from '../../lib/i18n';
 import { playSpeech, stopSpeech } from '../../lib/audio';
@@ -16,6 +16,10 @@ export default function SettingsPage() {
   const [lang, setLang] = useState('Tamil');
   const [voice, setVoice] = useState('ishita');
   const [family, setFamily] = useState<FamilyMember[]>([]);
+  // The grandparent's family code (from /api/auth/me) — shown so grandma can
+  // share it whenever a family member wants to link to her.
+  const [familyCode, setFamilyCode] = useState<string | null>(null);
+  const [copiedCode, setCopiedCode] = useState(false);
   // Which voice is currently being previewed (its id, or null).
   const [previewing, setPreviewing] = useState<string | null>(null);
   const [previewErr, setPreviewErr] = useState('');
@@ -37,6 +41,12 @@ export default function SettingsPage() {
     fetch('/api/family-members')
       .then((r) => r.json())
       .then((d: FamilyMember[]) => setFamily(Array.isArray(d) ? d : []))
+      .catch(() => {});
+    fetch('/api/auth/me')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { role?: string; profile?: { link_code?: string | null } } | null) => {
+        if (d?.role === 'grandparent' && d.profile?.link_code) setFamilyCode(d.profile.link_code);
+      })
       .catch(() => {});
     return () => stopSpeech();
   }, []);
@@ -113,6 +123,31 @@ export default function SettingsPage() {
         <h1 className="text-2xl font-bold text-ink"><T k="settings.title" /></h1>
         <p className="text-sm text-ink-muted"><T k="settings.subtitle" /></p>
       </div>
+
+      {/* Your family code — only visible to the grandparent's own session */}
+      {familyCode && (
+        <section className="rounded-3xl border border-line bg-card p-4 shadow-soft">
+          <p className="mb-1 flex items-center gap-3 text-sm font-semibold text-ink">
+            <KeyRound size={18} className="text-brand" /> <T k="settings.familyCode" />
+          </p>
+          <p className="mb-3 text-xs text-ink-muted">{translate(uiLang, 'settings.familyCodeHint')}</p>
+          <div className="flex items-center gap-3 rounded-2xl bg-card-soft px-4 py-3">
+            <span className="text-xl font-extrabold tracking-[0.25em] text-brand">{familyCode}</span>
+            <button
+              onClick={() => {
+                try {
+                  navigator.clipboard?.writeText(familyCode);
+                } catch {}
+                setCopiedCode(true);
+                setTimeout(() => setCopiedCode(false), 2000);
+              }}
+              className="ml-auto rounded-full bg-brand px-4 py-1.5 text-xs font-bold text-white transition-colors hover:bg-brand-strong"
+            >
+              {copiedCode ? '✓' : translate(uiLang, 'settings.copyCode')}
+            </button>
+          </div>
+        </section>
+      )}
 
       {/* Language */}
       <section className="rounded-3xl border border-line bg-card p-2 shadow-soft">

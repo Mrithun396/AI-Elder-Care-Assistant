@@ -17,7 +17,7 @@ import ReplyNotifier from './ReplyNotifier';
 import MedicationReminder from './MedicationReminder';
 
 const NAV = [
-  { href: '/', label: 'nav.home', icon: Home, short: 'nav.home' },
+  { href: '/home', label: 'nav.home', icon: Home, short: 'nav.home' },
   { href: '/messages', label: 'nav.messages', icon: MessageCircle, short: 'short.messages' },
   { href: '/companion', label: 'nav.companion', icon: Sparkles, short: 'short.companion' },
   { href: '/medicines', label: 'nav.medicines', icon: Pill, short: 'short.medicines' },
@@ -76,6 +76,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const mainRef = useRef<HTMLElement | null>(null);
   const isActive = (href: string) => (href === '/' ? pathname === '/' : pathname.startsWith(href));
+
 
   // The app shell scrolls its own <main> (the body never scrolls), so reset the
   // scroll position when navigating between tabs.
