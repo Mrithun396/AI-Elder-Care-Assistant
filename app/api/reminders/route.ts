@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getSupabase } from '../../lib/supabase';
+import { resolveSession } from '../../lib/auth';
 
 // A med is "due" while we're inside a 3-minute window starting at its time.
 // The client polls this every ~30s and announces each med once (tracked in
@@ -7,10 +8,14 @@ import { getSupabase } from '../../lib/supabase';
 const DUE_WINDOW_MIN = 3;
 
 // GET /api/reminders -> { due: [{ id, name, dose, time }] } — medicines whose
-// time-of-day has just arrived. Empty array when nothing is due, Supabase is
-// missing, or the medicines table doesn't exist yet.
+// time-of-day has just arrived. Requires a session (the reminder poller runs
+// on grandma's device); empty when nothing is due or the table doesn't exist.
 export async function GET() {
   try {
+    const resolved = await resolveSession();
+    if (!resolved) {
+      return NextResponse.json({ error: 'not authenticated' }, { status: 401 });
+    }
     const supabase = getSupabase();
     const { data, error } = await supabase.from('medicines').select('id, name, dose, time');
     if (error) return NextResponse.json({ due: [] });

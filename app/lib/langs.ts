@@ -16,9 +16,20 @@ export const LANGS: { name: string; code: string }[] = [
   { name: 'English', code: 'en-IN' },
 ];
 
-export const GRANDMA_NAME = 'Kamala';
-
 export const DEFAULT_GRANDMA_LANG = 'ta-IN';
+
+// The grandparent's real name — saved to localStorage at login/signup from
+// their profile (see grandparent/login). Everything that used to hardcode a
+// persona name (sidebar label, message sender, reply detection) now reads
+// this, so the app speaks with the actual grandparent's name.
+export function grandmaName(): string {
+  if (typeof window === 'undefined') return 'Grandma';
+  try {
+    const n = localStorage.getItem('bridge-grandma-name');
+    if (n && n.trim()) return n.trim();
+  } catch {}
+  return 'Grandma';
+}
 
 export function codeForLang(name: string): string {
   return LANGS.find((l) => l.name === name)?.code ?? DEFAULT_GRANDMA_LANG;

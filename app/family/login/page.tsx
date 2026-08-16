@@ -1,5 +1,6 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
 export default function FamilyLoginPage() {
@@ -11,6 +12,23 @@ export default function FamilyLoginPage() {
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+
+  // Already signed in as a family member? Go straight to the dashboard.
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/auth/me')
+      .then(async (r) => {
+        if (!r.ok) throw new Error('not signed in');
+        const d = await r.json();
+        if (!cancelled && d.role === 'family') {
+          router.replace('/family');
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [router]);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -215,6 +233,17 @@ export default function FamilyLoginPage() {
               : 'The account is linked to a family member so your replies are sent as you.'}
           </p>
         </div>
+
+        <p style={{ textAlign: 'center', fontSize: 12, color: '#8A8175', marginTop: 18 }}>
+          <Link href="/grandparent/login" style={{ color: '#223A5E', fontWeight: 700, textDecoration: 'none' }}>
+            Are you the grandparent? Sign in here →
+          </Link>
+        </p>
+        <p style={{ textAlign: 'center', fontSize: 12, color: '#8A8175', marginTop: 8 }}>
+          <Link href="/" style={{ color: '#8A8175', textDecoration: 'none' }}>
+            ← Choose a different option
+          </Link>
+        </p>
       </div>
     </div>
   );

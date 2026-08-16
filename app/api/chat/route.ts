@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAnySession } from '../../lib/auth';
 export const runtime = 'nodejs';
 
 const TIMEOUT_MS = 30000;
@@ -193,6 +194,11 @@ async function callCompat(msgs: { role: string; content: string }[]) {
 
 export async function POST(req: NextRequest) {
   try {
+    // The LLM call costs Sarvam credits — only signed-in users may chat.
+    const session = await requireAnySession();
+    if (!session) {
+      return NextResponse.json({ error: 'Sign in to chat.' }, { status: 401 });
+    }
     const { messages, target_language_code = 'ta-IN', context } = await req.json();
     if (!Array.isArray(messages) || messages.length === 0) {
       return NextResponse.json({ error: 'No messages' }, { status: 400 });

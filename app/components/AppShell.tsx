@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
@@ -13,11 +13,12 @@ import {
   HeartHandshake,
 } from 'lucide-react';
 import { LangProvider, T, useLang, translate } from '../lib/i18n';
+import { grandmaName } from '../lib/langs';
 import ReplyNotifier from './ReplyNotifier';
 import MedicationReminder from './MedicationReminder';
 
 const NAV = [
-  { href: '/', label: 'nav.home', icon: Home, short: 'nav.home' },
+  { href: '/home', label: 'nav.home', icon: Home, short: 'nav.home' },
   { href: '/messages', label: 'nav.messages', icon: MessageCircle, short: 'short.messages' },
   { href: '/companion', label: 'nav.companion', icon: Sparkles, short: 'short.companion' },
   { href: '/medicines', label: 'nav.medicines', icon: Pill, short: 'short.medicines' },
@@ -70,11 +71,17 @@ function NavLink({
       <T k={label} />
     </Link>
   );
-}
-
-export default function AppShell({ children }: { children: React.ReactNode }) {
+}export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const mainRef = useRef<HTMLElement | null>(null);
+  // The grandparent's real name (from their profile, saved at login). Seeded
+  // in an effect — not at render — so SSR and the first client render agree
+  // ('Grandma'), then the real name appears without a hydration mismatch.
+  const [grandmaLabel, setGrandmaLabel] = useState('Grandma');
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setGrandmaLabel(grandmaName());
+  }, []);
   const isActive = (href: string) => (href === '/' ? pathname === '/' : pathname.startsWith(href));
 
   // The app shell scrolls its own <main> (the body never scrolls), so reset the
@@ -105,10 +112,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <div className="px-6 py-5 border-t border-line">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-accent-soft text-accent text-sm font-bold">
-              K
+              {(grandmaLabel || 'G')[0]}
             </div>
             <div className="leading-tight">
-              <p className="text-sm font-semibold text-ink"><T k="shell.grandma" /></p>
+              <p className="text-sm font-semibold text-ink">{grandmaLabel}</p>
               <p className="text-[11px] text-ink-muted"><T k="shell.role" /></p>
             </div>
           </div>

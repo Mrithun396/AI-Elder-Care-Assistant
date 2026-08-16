@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Mic, Sparkles, BookOpen, Newspaper, MessagesSquare, Laugh, Volume2, CalendarCheck } from 'lucide-react';
 import { T, translate, useLang, type LangKey } from '../../lib/i18n';
-import { grandmaLangCode, grandmaVoice } from '../../lib/langs';
+import { grandmaName, grandmaLangCode, grandmaVoice } from '../../lib/langs';
 import { grabLocation, readSavedLocation } from '../../lib/location';
 import { localizeNumbers } from '../../lib/numwords';
 import { playSpeech, stopSpeech } from '../../lib/audio';
@@ -731,7 +731,7 @@ export default function CompanionPage() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            sender_name: 'Kamala',
+            sender_name: grandmaName(),
             message: 'Emergency! I need help.',
           }),
         });

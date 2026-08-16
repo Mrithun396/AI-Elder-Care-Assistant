@@ -1,25 +1,40 @@
 import { NextResponse } from 'next/server';
-import { getServiceClient } from '../../../lib/auth';
+import {
+  resolveSession,
+  setSessionCookie,
+  linkedGrandparentsFor,
+  pendingGrandparentsFor,
+  familyConnectionsFor,
+} from '../../../lib/auth';
 
-// Live demo mode: there is no family login. Anyone visiting the family side
-// automatically acts as the demo family member (Arun), and sees every
-// grandparent profile in the database (the demo grandma, Kamala) as their
-// linked grandparents.
 export async function GET() {
-  const supabase = getServiceClient();
-  const { data: grandparents } = await supabase
-    .from('profiles')
-    .select('id, name, language')
-    .eq('role', 'grandparent');
+  const resolved = await resolveSession();
+  if (!resolved) return NextResponse.json({ error: 'not authenticated' }, { status: 401 });
 
-  return NextResponse.json({
-    role: 'family',
-    demo: true,
-    member: { id: 'demo', name: 'Arun', relation: 'Son' },
-    linkedGrandparents: (grandparents || []).map((g) => ({
-      id: g.id,
-      name: g.name,
-      language: g.language ?? null,
-    })),
-  });
+  const base = { role: resolved.role };
+  let body: Record<string, unknown>;
+  if (resolved.role === 'grandparent') {
+    // The grandma side: her profile + who's linked to her (and who's waiting).
+    const connections = await familyConnectionsFor(resolved.userId);
+    body = {
+      ...base,
+      profile: resolved.profile,
+      linkedFamily: connections.active,
+      pendingFamily: connections.pending,
+    };
+  } else {
+    // Family: the grandparents they're linked to (many-to-many), with each
+    // grandma's name + language for replies, plus pending (unconfirmed) ones.
+    const [linkedGrandparents, pendingGrandparents] = await Promise.all([
+      linkedGrandparentsFor(resolved.userId),
+      pendingGrandparentsFor(resolved.userId),
+    ]);
+    body = { ...base, member: resolved.member, profile: resolved.profile, linkedGrandparents, pendingGrandparents };
+  }
+
+  const res = NextResponse.json(body);
+  if (resolved.refreshed) {
+    setSessionCookie(res, resolved.session.at, resolved.session.rt);
+  }
+  return res;
 }

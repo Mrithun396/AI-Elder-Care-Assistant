@@ -10,7 +10,7 @@ import {
   HeartPulse,
   ChevronRight,
 } from 'lucide-react';
-import { T, fmt, translate, useLang } from '../lib/i18n';
+import { T, fmt, translate, useLang } from '../../lib/i18n';
 
 const QUICK_CARDS = [
   {

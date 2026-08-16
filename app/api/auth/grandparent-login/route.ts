@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServiceClient, setSessionCookie, memberForUser, profileForUser } from '../../../lib/auth';
+import { getServiceClient, setSessionCookie, profileForUser } from '../../../lib/auth';
 
 export async function POST(req: NextRequest) {
   try {
@@ -15,14 +15,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid email or password.' }, { status: 401 });
     }
     const profile = await profileForUser(data.user);
-    if (profile?.role === 'grandparent') {
+    if (!profile || profile.role !== 'grandparent') {
       return NextResponse.json(
-        { error: 'This is a grandparent account — sign in as the grandparent.' },
+        { error: 'This account is not a grandparent account — use the family member sign-in.' },
         { status: 401 }
       );
     }
-    const member = await memberForUser(data.user);
-    const res = NextResponse.json({ member });
+    const res = NextResponse.json({ profile });
     setSessionCookie(res, data.session.access_token, data.session.refresh_token);
     return res;
   } catch (err: unknown) {
@@ -30,6 +29,6 @@ export async function POST(req: NextRequest) {
     if (msg.includes('not configured')) {
       return NextResponse.json({ error: 'Supabase is not configured.' }, { status: 500 });
     }
-    return NextResponse.json({ error: 'Login failed — please try again.' }, { status: 500 });
+    return NextResponse.json({ error: 'Sign-in failed — please try again.' }, { status: 500 });
   }
 }

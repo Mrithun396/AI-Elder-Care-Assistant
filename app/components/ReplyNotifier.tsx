@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import { Volume2, X } from 'lucide-react';
-import { GRANDMA_NAME, grandmaLangCode, grandmaVoice } from '../lib/langs';
+import { grandmaName, grandmaLangCode, grandmaVoice } from '../lib/langs';
 import { T, fmt, translate, useLang } from '../lib/i18n';
 import { playSpeech, stopSpeech } from '../lib/audio';
 
@@ -29,7 +29,7 @@ export default function ReplyNotifier() {
   // rapid double-clicks can't stack overlapping TTS fetches (echo).
   const speakingRef = useRef(false);
 
-  const isReply = (m: Message) => m.sender_name !== GRANDMA_NAME;
+  const isReply = (m: Message) => m.sender_name !== grandmaName();
 
   const stopAudio = () => {
     speakingRef.current = false;
