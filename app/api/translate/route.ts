@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAnySession } from '../../lib/auth';
 export const runtime = 'nodejs';
 
 // In-memory cache so identical requests (e.g. the Companion's fixed scripted
@@ -7,6 +8,11 @@ const translateCache = new Map<string, string>();
 
 export async function POST(req: NextRequest) {
   try {
+    // Translation costs Sarvam credits — only signed-in users may use it.
+    const session = await requireAnySession();
+    if (!session) {
+      return NextResponse.json({ error: 'Sign in to translate.' }, { status: 401 });
+    }
     const { input, source_language_code = 'en-IN', target_language_code = 'ta-IN' } = await req.json();
     if (!input || !input.trim()) {
       return NextResponse.json({ error: 'No text to translate' }, { status: 400 });

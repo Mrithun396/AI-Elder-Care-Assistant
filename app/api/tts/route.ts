@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAnySession } from '../../lib/auth';
 export const runtime = 'nodejs';
 
 // In-memory cache so repeated reads of the same text (e.g. the Companion's
@@ -18,6 +19,11 @@ function spaceOutText(text: string): string {
 
 export async function POST(req: NextRequest) {
   try {
+    // TTS costs Sarvam credits — only signed-in users may synthesize audio.
+    const session = await requireAnySession();
+    if (!session) {
+      return NextResponse.json({ error: 'Sign in to use voice.' }, { status: 401 });
+    }
     const {
       text,
       target_language_code = 'ta-IN',

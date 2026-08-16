@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabase } from '../../lib/supabase';
+import { resolveSession } from '../../lib/auth';
 
 // Default medicines shown when the table is empty (first run) — identical to
 // the hardcoded list the page used before medicines became editable.
@@ -12,12 +13,20 @@ const DEFAULTS = [
 
 const COLS = 'id, name, dose, time, created_at';
 
-// GET /api/medicines -> all medicines ordered by time of day.
+// GET /api/medicines -> all medicines ordered by time of day. Grandparent-only
+// (the family dashboard has no medicines view).
 // If the table is empty, the defaults are seeded first so the page always has
 // a sensible list. If Supabase isn't configured, returns a 503 the client can
 // use to fall back to its local defaults.
 export async function GET() {
   try {
+    const resolved = await resolveSession();
+    if (!resolved) {
+      return NextResponse.json({ error: 'not authenticated' }, { status: 401 });
+    }
+    if (resolved.role !== 'grandparent') {
+      return NextResponse.json({ error: 'Only the grandparent can view medicines.' }, { status: 403 });
+    }
     const supabase = getSupabase();
     const { data, error } = await supabase
       .from('medicines')
@@ -58,6 +67,13 @@ export async function GET() {
 // POST /api/medicines -> add a medicine. Body: { name, dose?, time ('HH:MM') }
 export async function POST(req: NextRequest) {
   try {
+    const resolved = await resolveSession();
+    if (!resolved) {
+      return NextResponse.json({ error: 'not authenticated' }, { status: 401 });
+    }
+    if (resolved.role !== 'grandparent') {
+      return NextResponse.json({ error: 'Only the grandparent can manage medicines.' }, { status: 403 });
+    }
     const supabase = getSupabase();
     const body = await req.json();
     const name = (body.name || '').trim();
@@ -80,6 +96,13 @@ export async function POST(req: NextRequest) {
 // PATCH /api/medicines -> edit a medicine. Body: { id, name?, dose?, time? }
 export async function PATCH(req: NextRequest) {
   try {
+    const resolved = await resolveSession();
+    if (!resolved) {
+      return NextResponse.json({ error: 'not authenticated' }, { status: 401 });
+    }
+    if (resolved.role !== 'grandparent') {
+      return NextResponse.json({ error: 'Only the grandparent can manage medicines.' }, { status: 403 });
+    }
     const supabase = getSupabase();
     const body = await req.json();
     if (!body.id) return NextResponse.json({ error: 'id is required' }, { status: 400 });
@@ -106,6 +129,13 @@ export async function PATCH(req: NextRequest) {
 // DELETE /api/medicines?id=<uuid> -> remove a medicine
 export async function DELETE(req: NextRequest) {
   try {
+    const resolved = await resolveSession();
+    if (!resolved) {
+      return NextResponse.json({ error: 'not authenticated' }, { status: 401 });
+    }
+    if (resolved.role !== 'grandparent') {
+      return NextResponse.json({ error: 'Only the grandparent can manage medicines.' }, { status: 403 });
+    }
     const supabase = getSupabase();
     const id = req.nextUrl.searchParams.get('id');
     if (!id) return NextResponse.json({ error: 'id is required' }, { status: 400 });

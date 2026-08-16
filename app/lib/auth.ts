@@ -30,6 +30,25 @@ export type Profile = {
 
 export type SessionRole = 'grandparent' | 'family';
 
+// Resolve the session cookie to a lightweight { userId, role } pair, or null.
+// Shared by the Sarvam-backed routes so anonymous visitors can't burn credits.
+export async function requireAnySession(): Promise<{ userId: string; role: SessionRole } | null> {
+  const resolved = await resolveSession();
+  if (!resolved) return null;
+  return { userId: resolved.userId, role: resolved.role };
+}
+
+// The profile ids whose records the resolved user may see / own:
+//   grandparent -> just themselves
+//   family      -> their actively linked grandparents
+// Used to scope health/memories/alerts reads (and tag writes) when a
+// profile_id column exists; callers fall back to unscoped when it doesn't.
+export async function visibleProfileIds(resolved: { role: SessionRole; userId: string }): Promise<string[]> {
+  if (resolved.role === 'grandparent') return [resolved.userId];
+  const linked = await linkedGrandparentsFor(resolved.userId);
+  return linked.map((g) => g.id);
+}
+
 type SessionPayload = { at: string; rt: string };
 
 // Unambiguous code alphabet — no 0/O/1/I so grandma can read it aloud.
@@ -180,7 +199,15 @@ export async function linkedGrandparentsFor(userId: string): Promise<LinkedGrand
       // "column ... does not exist" message also contains "does not exist".
       if (/status|column/i.test(error.message || '')) {
         const { data: plain } = await supabase.from('family_links').select('grandparent_id').eq('family_id', userId);
-        return resolveGrandparents((plain || []).map((l) => ({ grandparent_id: l.grandparent_id })));
+        const junction = (plain || []).map((l) => ({ grandparent_id: l.grandparent_id }));
+        // The link route also writes the legacy profiles.linked_to column in
+        // this pre-migration state — merge it so links aren't lost.
+        const legacy = await linkedGrandparentsLegacy(userId);
+        const seen = new Set(junction.map((l) => l.grandparent_id));
+        for (const g of legacy) {
+          if (!seen.has(g.id)) junction.push({ grandparent_id: g.id });
+        }
+        return resolveGrandparents(junction);
       }
       // family_links table itself doesn't exist yet — legacy single-link column.
       return linkedGrandparentsLegacy(userId);
@@ -231,7 +258,19 @@ export async function familyConnectionsFor(grandparentId: string): Promise<{
       .from('family_links')
       .select('family_id, status')
       .eq('grandparent_id', grandparentId);
-    if (error || !data) return { active: [], pending: [] };
+    if (error || !data) {
+      // Pre-migration (no status column / no junction table): links live on
+      // the family profile's legacy linked_to column — surface them as active.
+      if (/status|column|does not exist|could not find/i.test(error?.message || '')) {
+        const { data: legacy } = await supabase
+          .from('profiles')
+          .select('id, name')
+          .eq('role', 'family')
+          .eq('linked_to', grandparentId);
+        return { active: (legacy || []).map((p) => ({ id: p.id, name: p.name })), pending: [] };
+      }
+      return { active: [], pending: [] };
+    }
     const statusesKnown = data.some((r) => typeof r.status === 'string');
     const activeIds = statusesKnown
       ? data.filter((r) => r.status === 'active').map((r) => r.family_id)
@@ -251,6 +290,70 @@ async function resolveFamilyMembers(ids: string[]): Promise<LinkedFamilyMember[]
   if (ids.length === 0) return [];
   const { data: profs } = await supabase.from('profiles').select('id, name').in('id', ids);
   return (profs || []).map((p) => ({ id: p.id, name: p.name }));
+}
+
+export type LinkedFamilyProfile = { id: string; name: string; relation: string };
+
+// From a grandparent's view: the family members ACTIVELY linked to them, as
+// profile-shaped rows (id = profiles.id) so messages can be addressed via
+// recipient_profile_id. Relation comes from the legacy family_members table
+// (joined on user_id == profiles.id) when available.
+export async function linkedFamilyMembersFor(grandparentId: string): Promise<LinkedFamilyProfile[]> {
+  const supabase = getServiceClient();
+  let ids: string[] = [];
+  try {
+    const { data: links, error } = await supabase
+      .from('family_links')
+      .select('family_id, status')
+      .eq('grandparent_id', grandparentId);
+    if (error) {
+      // Status column missing (migration not run) — treat all links as active,
+      // and merge the legacy profiles.linked_to links the link route also writes.
+      if (/status|column/i.test(error.message || '')) {
+        const { data: plain } = await supabase
+          .from('family_links')
+          .select('family_id')
+          .eq('grandparent_id', grandparentId);
+        ids = (plain || []).map((l) => l.family_id);
+        const { data: legacy } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('role', 'family')
+          .eq('linked_to', grandparentId);
+        const seen = new Set(ids);
+        for (const p of legacy || []) {
+          if (!seen.has(p.id)) ids.push(p.id);
+        }
+      } else if (/does not exist|could not find/i.test(error.message || '')) {
+        // Junction table missing — legacy profiles.linked_to column instead.
+        const { data: legacy } = await supabase
+          .from('profiles')
+          .select('id, name')
+          .eq('role', 'family')
+          .eq('linked_to', grandparentId);
+        return (legacy || []).map((p) => ({ id: p.id, name: p.name, relation: 'Family' }));
+      }
+    } else {
+      const statusesKnown = (links || []).some((r) => typeof r.status === 'string');
+      ids = statusesKnown
+        ? (links || []).filter((r) => r.status === 'active').map((r) => r.family_id)
+        : (links || []).map((r) => r.family_id);
+    }
+  } catch {
+    return [];
+  }
+  if (ids.length === 0) return [];
+
+  const { data: profs } = await supabase.from('profiles').select('id, name').in('id', ids);
+  const nameMap = new Map((profs || []).map((p) => [p.id, p.name]));
+  const { data: fams } = await supabase
+    .from('family_members')
+    .select('user_id, relation')
+    .in('user_id', ids);
+  const relMap = new Map((fams || []).map((f) => [f.user_id, f.relation]));
+  return ids
+    .filter((id) => nameMap.has(id))
+    .map((id) => ({ id, name: nameMap.get(id)!, relation: relMap.get(id) || 'Family' }));
 }
 
 async function linkedGrandparentsLegacy(userId: string): Promise<LinkedGrandparent[]> {

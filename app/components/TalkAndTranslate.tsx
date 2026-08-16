@@ -204,7 +204,11 @@ export default function TalkAndTranslate() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          recipient_id: selectedFamily,
+          // Profile-shaped id (profiles.id) so the message is addressed to a
+          // specific linked family member — the API validates it against the
+          // grandparent's active links. No recipient_id: that legacy column
+          // FKs to family_members and must not receive a profile id.
+          recipient_profile_id: selectedFamily,
           sender_profile_id: senderProfileId,
           // The real name (e.g. "Rani") — without it the API stores the
           // "Grandma" fallback, which mismatches the browser's stored name

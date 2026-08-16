@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAnySession } from '../../lib/auth';
 export const runtime = 'nodejs';
 
 const SARVAM_TIMEOUT_MS = 45000;
@@ -15,6 +16,11 @@ async function fetchWithTimeout(url: string, init: RequestInit, ms: number) {
 
 export async function POST(req: NextRequest) {
   try {
+    // Speech-to-text costs Sarvam credits — only signed-in users may use it.
+    const session = await requireAnySession();
+    if (!session) {
+      return NextResponse.json({ error: 'Sign in to use voice.' }, { status: 401 });
+    }
     // ?mode=transcribe returns only the transcript (used by the AI Companion,
     // which just needs to *listen* — no second-language translation).
     const transcribeOnly = req.nextUrl.searchParams.get('mode') === 'transcribe';
