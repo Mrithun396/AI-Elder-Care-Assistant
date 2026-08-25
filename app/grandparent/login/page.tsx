@@ -19,6 +19,7 @@ export default function GrandparentLoginPage() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [language, setLanguage] = useState('ta-IN');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -338,15 +339,36 @@ export default function GrandparentLoginPage() {
             </div>
             <div>
               <label style={labelStyle} htmlFor="gp-password">Password</label>
-              <input
-                id="gp-password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder={mode === 'signup' ? 'At least 6 characters' : 'Your password'}
-                autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
-                style={inputStyle}
-              />
+              <div style={{ position: 'relative' }}>
+                <input
+                  id="gp-password"
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder={mode === 'signup' ? 'At least 6 characters' : 'Your password'}
+                  autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
+                  style={{ ...inputStyle, paddingRight: 44 }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  style={{
+                    position: 'absolute',
+                    right: 10,
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    fontSize: 18,
+                    padding: 4,
+                    color: '#8A8175',
+                  }}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showPassword ? '🙈' : '👁️'}
+                </button>
+              </div>
             </div>
 
             {error && (
