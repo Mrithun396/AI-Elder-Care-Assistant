@@ -11,6 +11,7 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { T, fmt, translate, useLang } from '../../lib/i18n';
+import CreditMeter from '../../components/CreditMeter';
 
 const QUICK_CARDS = [
   {
@@ -124,6 +125,9 @@ export default function HomePage() {
           </Link>
         </div>
       </section>
+
+      {/* Credit meter */}
+      <CreditMeter />
 
       {/* Family dashboard link */}
       <Link

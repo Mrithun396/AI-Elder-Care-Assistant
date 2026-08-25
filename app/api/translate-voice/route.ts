@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAnySession } from '../../lib/auth';
+import { logCreditUsage } from '../../lib/supabase';
 export const runtime = 'nodejs';
 
 const SARVAM_TIMEOUT_MS = 45000;
@@ -58,6 +59,7 @@ export async function POST(req: NextRequest) {
 
     if (transcribeOnly) {
       const native = await callSarvam('transcribe');
+      await logCreditUsage('stt', native.transcript?.length || 0);
       return NextResponse.json({
         original_text: native.transcript,
         original_language: native.language_code,
@@ -68,6 +70,7 @@ export async function POST(req: NextRequest) {
       callSarvam('transcribe'),
       callSarvam('translate'),
     ]);
+    await logCreditUsage('stt', native.transcript?.length || 0);
 
     return NextResponse.json({
       original_text: native.transcript,

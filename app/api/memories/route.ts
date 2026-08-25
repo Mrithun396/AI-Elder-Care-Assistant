@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabase } from '../../lib/supabase';
+import { getSupabase, logCreditUsage } from '../../lib/supabase';
 import { resolveSession, visibleProfileIds } from '../../lib/auth';
 
 // Translate a saved note to English once, at save time, so the family
@@ -93,6 +93,7 @@ export async function POST(req: NextRequest) {
     } else {
       try {
         translatedText = await translateToEnglish(content, sourceLang);
+        await logCreditUsage('translate', content.length);
       } catch {
         // keep null — the family dashboard falls back to the original text
       }
