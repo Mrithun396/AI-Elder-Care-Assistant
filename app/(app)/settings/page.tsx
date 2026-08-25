@@ -5,6 +5,7 @@ import { Languages, Volume2, Users, Moon, Info, ChevronRight, HeartHandshake, Pl
 import { LANGS, VOICES, codeForLang, grandmaLangCode, voiceLabel } from '../../lib/langs';
 import { T, translate, useLang } from '../../lib/i18n';
 import { playSpeech, stopSpeech } from '../../lib/audio';
+import CreditMeter from '../../components/CreditMeter';
 
 const LANG_NAMES = LANGS.map((l) => l.name);
 
@@ -340,6 +341,9 @@ export default function SettingsPage() {
           </div>
         )}
       </section>
+
+      {/* AI Credits */}
+      <CreditMeter />
 
       {/* Dark mode */}
       <section className="rounded-3xl border border-line bg-card p-2 shadow-soft">

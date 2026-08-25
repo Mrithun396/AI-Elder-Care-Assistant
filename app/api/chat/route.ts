@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAnySession } from '../../lib/auth';
+import { logCreditUsage } from '../../lib/supabase';
 export const runtime = 'nodejs';
 
 const TIMEOUT_MS = 30000;
@@ -154,6 +155,8 @@ async function callSarvam(msgs: { role: string; content: string }[]) {
     }
     const text = data?.choices?.[0]?.message?.content?.trim();
     if (!text) throw new Error('Empty reply from Sarvam chat');
+    const usage = data?.usage;
+    await logCreditUsage('chat', usage?.total_tokens || 0);
     return NextResponse.json({ text });
   } finally {
     clearTimeout(timer);

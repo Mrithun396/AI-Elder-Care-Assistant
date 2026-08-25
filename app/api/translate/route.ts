@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAnySession } from '../../lib/auth';
+import { logCreditUsage } from '../../lib/supabase';
 export const runtime = 'nodejs';
 
 // In-memory cache so identical requests (e.g. the Companion's fixed scripted
@@ -50,6 +51,7 @@ export async function POST(req: NextRequest) {
     const data = await res.json();
     if (!res.ok) throw new Error(data.message || `Sarvam translate failed: ${res.status}`);
     translateCache.set(cacheKey, data.translated_text);
+    await logCreditUsage('translate', input.length);
     return NextResponse.json({ translated_text: data.translated_text });
   } catch (err: any) {
     console.error(err);

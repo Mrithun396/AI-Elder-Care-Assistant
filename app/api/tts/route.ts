@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAnySession } from '../../lib/auth';
+import { logCreditUsage } from '../../lib/supabase';
 export const runtime = 'nodejs';
 
 // In-memory cache so repeated reads of the same text (e.g. the Companion's
@@ -79,6 +80,7 @@ export async function POST(req: NextRequest) {
     if (!audio) throw new Error('No audio returned from Sarvam');
 
     ttsCache.set(cacheKey, audio);
+    await logCreditUsage('tts', text.length);
     return NextResponse.json({ audio });
   } catch (err: any) {
     console.error(err);
