@@ -16,6 +16,7 @@ import { LangProvider, T, useLang, translate } from '../lib/i18n';
 import { grandmaName } from '../lib/langs';
 import ReplyNotifier from './ReplyNotifier';
 import MedicationReminder from './MedicationReminder';
+import CreditBadge from './CreditBadge';
 
 const NAV = [
   { href: '/home', label: 'nav.home', icon: Home, short: 'nav.home' },
@@ -131,6 +132,7 @@ function NavLink({
               <HeartHandshake size={18} />
             </div>
             <p className="font-bold text-ink">Bridge</p>
+            <div className="ml-auto"><CreditBadge /></div>
           </div>
         </header>
 

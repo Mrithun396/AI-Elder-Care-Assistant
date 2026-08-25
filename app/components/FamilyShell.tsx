@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { MessageCircle, HeartPulse, Siren, Settings as SettingsIcon, LogOut, MapPin } from 'lucide-react';
+import CreditBadge from './CreditBadge';
 
 type Alert = {
   id: string;
@@ -92,12 +93,15 @@ export default function FamilyShell({ children }: { children: React.ReactNode })
               )}
             </p>
           </div>
-          <button
-            onClick={logout}
-            className="flex shrink-0 items-center gap-1.5 rounded-full border border-line px-4 py-2 text-xs font-bold text-ink-muted transition-colors hover:bg-card-soft hover:text-ink"
-          >
-            <LogOut size={14} /> Log out
-          </button>
+          <div className="flex items-center gap-2">
+            <CreditBadge />
+            <button
+              onClick={logout}
+              className="flex shrink-0 items-center gap-1.5 rounded-full border border-line px-4 py-2 text-xs font-bold text-ink-muted transition-colors hover:bg-card-soft hover:text-ink"
+            >
+              <LogOut size={14} /> Log out
+            </button>
+          </div>
         </div>
 
         {/* Slim live alert bar — full details on the SOS page */}
