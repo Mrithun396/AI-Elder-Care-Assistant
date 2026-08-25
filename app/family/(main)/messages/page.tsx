@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { nativeName } from '../../../lib/langs';
+import CreditMeter from '../../../components/CreditMeter';
 
 type LinkedGrandparent = { id: string; name: string; language?: string | null };
 type Member = { id: string; name: string; relation: string };
@@ -170,7 +171,10 @@ export default function FamilyMessagesPage() {
         </div>
       ) : (
         <>
-          {/* Composer — who do you want to send to? */}
+          {/* Credit meter */}
+      <CreditMeter />
+
+      {/* Composer — who do you want to send to? */}
           <div className="rounded-3xl border border-line bg-card p-4 shadow-soft">
             <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-ink-muted">
               Send to
