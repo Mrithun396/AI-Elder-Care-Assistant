@@ -43,3 +43,87 @@ export function stopSpeech() {
     audio.load();
   }
 }
+
+// ── Browser TTS (free, instant, lower quality than Sarvam) ───────────────
+// Used as an instant-fallback while Sarvam TTS generates in the background.
+// When Sarvam audio arrives, call stopBrowserTts() to cut it, then playSpeech()
+// with the higher-quality WAV.
+let browserSpeaking = false;
+
+/**
+ * Speak text immediately using the browser's built-in speech synthesis.
+ * Returns instantly (non-blocking). Call `stopBrowserTts()` to cut it short.
+ * Only speaks if a voice exists for `langCode` — silence beats garbled speech.
+ */
+export function speakWithBrowserTts(
+  text: string,
+  langCode: string,
+  onEnd?: () => void
+) {
+  const synth = typeof window !== 'undefined' ? window.speechSynthesis : null;
+  if (!synth) {
+    onEnd?.();
+    return;
+  }
+  const exact = langCode.toLowerCase();
+  const primary = langCode.split('-')[0].toLowerCase();
+  const pickVoice = () =>
+    synth.getVoices().find((v) => v.lang.toLowerCase() === exact) ||
+    synth.getVoices().find((v) => v.lang.toLowerCase().startsWith(primary)) || null;
+
+  let finished = false;
+  const finish = () => {
+    if (finished) return;
+    finished = true;
+    browserSpeaking = false;
+    onEnd?.();
+  };
+
+  const speakNow = (voice: SpeechSynthesisVoice | null) => {
+    if (!voice) {
+      finish();
+      return;
+    }
+    try {
+      const utter = new SpeechSynthesisUtterance(text);
+      utter.lang = langCode;
+      utter.voice = voice;
+      utter.rate = 1.0; // normal speed for instant playback
+      window.setTimeout(finish, 15000); // watchdog
+      utter.onend = finish;
+      utter.onerror = finish;
+      browserSpeaking = true;
+      synth.speak(utter);
+    } catch {
+      finish();
+    }
+  };
+
+  const voice = pickVoice();
+  if (voice) {
+    speakNow(voice);
+    return;
+  }
+  if (synth.getVoices().length === 0) {
+    // Chrome loads voices async — wait once
+    const onVoices = () => {
+      synth.removeEventListener('voiceschanged', onVoices);
+      speakNow(pickVoice());
+    };
+    synth.addEventListener('voiceschanged', onVoices);
+    window.setTimeout(() => {
+      synth.removeEventListener('voiceschanged', onVoices);
+      speakNow(pickVoice());
+    }, 3000);
+    return;
+  }
+  finish(); // no matching voice — stay silent
+}
+
+/** Stop any in-progress browser TTS (no-op if nothing is playing). */
+export function stopBrowserTts() {
+  if (browserSpeaking) {
+    window.speechSynthesis?.cancel();
+    browserSpeaking = false;
+  }
+}
