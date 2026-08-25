@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { Moon, Sun, KeyRound, Unlink, Languages, UserRound } from 'lucide-react';
 import { LANGS, nativeName } from '../../../lib/langs';
+import CreditMeter from '../../../components/CreditMeter';
 
 type LinkedGrandparent = { id: string; name: string; language?: string | null };
 type Member = { name: string; relation?: string; email?: string | null };
@@ -110,6 +111,9 @@ export default function FamilySettingsPage() {
         <h2 className="text-xl font-bold text-ink">Settings</h2>
         <p className="text-sm text-ink-muted">Your family account — appearance, language and connections.</p>
       </div>
+
+      {/* AI Credits */}
+      <CreditMeter />
 
       {/* Your account */}
       <section className={section}>
