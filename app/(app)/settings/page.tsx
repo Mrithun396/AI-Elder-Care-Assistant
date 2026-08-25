@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { Languages, Volume2, Users, Moon, Info, ChevronRight, HeartHandshake, Play, Square, KeyRound } from 'lucide-react';
+import { Languages, Volume2, Users, Moon, Info, ChevronRight, HeartHandshake, Play, Square, KeyRound, LogOut } from 'lucide-react';
 import { LANGS, VOICES, codeForLang, grandmaLangCode, voiceLabel } from '../../lib/langs';
 import { T, translate, useLang } from '../../lib/i18n';
 import { playSpeech, stopSpeech } from '../../lib/audio';
@@ -28,6 +28,7 @@ export default function SettingsPage() {
   // Which voice is currently being previewed (its id, or null).
   const [previewing, setPreviewing] = useState<string | null>(null);
   const [previewErr, setPreviewErr] = useState('');
+  const [confirmLogout, setConfirmLogout] = useState(false);
   // Guards a stale preview: if the user stops (or switches) while a /api/tts
   // request is still in flight, the resolved audio must not play.
   const previewSeqRef = useRef(0);
@@ -363,6 +364,40 @@ export default function SettingsPage() {
             ))}
           </div>
         </div>
+      </section>
+
+      {/* Log out */}
+      <section className="rounded-3xl border border-line bg-card p-4 shadow-soft">
+        {confirmLogout ? (
+          <div className="space-y-3">
+            <p className="text-sm font-bold text-ink">Are you sure you want to log out?</p>
+            <p className="text-xs text-ink-muted">You&apos;ll need to sign in again to use the app.</p>
+            <div className="flex gap-2">
+              <button
+                onClick={async () => {
+                  await fetch('/api/auth/logout', { method: 'POST' });
+                  window.location.href = '/';
+                }}
+                className="rounded-full bg-terra px-5 py-2.5 text-sm font-bold text-white transition-opacity hover:opacity-90"
+              >
+                Yes, log out
+              </button>
+              <button
+                onClick={() => setConfirmLogout(false)}
+                className="rounded-full border border-line px-5 py-2.5 text-sm font-bold text-ink-muted transition-colors hover:bg-card-soft"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            onClick={() => setConfirmLogout(true)}
+            className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-sm font-semibold text-terra transition-colors hover:bg-terra-soft"
+          >
+            <LogOut size={18} /> Log out
+          </button>
+        )}
       </section>
 
       {/* About */}
