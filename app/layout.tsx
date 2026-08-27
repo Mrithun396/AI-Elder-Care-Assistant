@@ -50,6 +50,16 @@ const notoSansOriya = Noto_Sans_Oriya({
 export const metadata: Metadata = {
   title: "Bridge — AI Elder Care Assistant",
   description: "Connecting generations through AI. Speak in your language, family hears it in theirs.",
+ manifest: "/manifest.json",
+ themeColor: "#4f46e5",
+ appleWebApp: {
+   capable: true,
+   statusBarStyle: "default",
+   title: "Bridge",
+ },
+ other: {
+   "mobile-web-app-capable": "yes",
+ },
 };
 
 export default function RootLayout({
@@ -67,6 +77,14 @@ export default function RootLayout({
         <script
           dangerouslySetInnerHTML={{
             __html: `try{if(localStorage.getItem('bridge-theme')==='dark')document.documentElement.classList.add('dark')}catch(e){}`,
+          }}
+        />
+        <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `if('serviceWorker' in navigator){window.addEventListener('load',()=>{navigator.serviceWorker.register('/sw.js').catch(()=>{})})}`,
           }}
         />
       </head>
