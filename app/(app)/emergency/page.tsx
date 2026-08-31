@@ -4,7 +4,7 @@ import { Siren, Phone, User, PhoneCall, CheckCircle2 } from 'lucide-react';
 import { T, translate, fmt, useLang } from '../../lib/i18n';
 import { grandmaName, grandmaLangCode, grandmaVoice } from '../../lib/langs';
 import { saveLocation } from '../../lib/location';
-import { playSpeech, stopSpeech } from '../../lib/audio';
+import { playSpeech, stopSpeech, speakWithBrowserTts, stopBrowserTts } from '../../lib/audio';
 
 const CONTACTS = [
   { name: 'Arun', relation: 'rel.son', phone: '+91 98765 43210' },
@@ -45,7 +45,7 @@ export default function EmergencyPage() {
   const [phase, setPhase] = useState<'idle' | 'counting' | 'sent'>('idle');
   const [countdown, setCountdown] = useState(COUNTDOWN_SECONDS);
   const [error, setError] = useState('');
-  const [preparing, setPreparing] = useState(false);
+  
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const locationRef = useRef<string | null>(null);
   const speakingRef = useRef(false);
@@ -69,7 +69,7 @@ export default function EmergencyPage() {
   useEffect(() => () => {
     cleanup();
     stopSpeech();
-    window.speechSynthesis?.cancel(); // stop any browser-TTS fallback too
+    stopBrowserTts();
   }, []);
 
   // Free, on-device fallback via the Web Speech API. Only used when Sarvam
@@ -79,71 +79,7 @@ export default function EmergencyPage() {
   // English voice reading Tamil is worse than no voice at all.
   // `finish` is one-shot and watchdogged so a Chrome quirk where speak() never
   // fires onend/onerror can't stall the queue forever.
-  const speakWithBrowser = (text: string, done: () => void) => {
-    const synth = window.speechSynthesis;
-    if (!synth) {
-      done();
-      return;
-    }
-    const target = grandmaLangCode();
-    const exact = target.toLowerCase();
-    const primary = target.split('-')[0].toLowerCase();
-    const pickVoice = () =>
-      synth.getVoices().find((v) => v.lang.toLowerCase() === exact) ||
-      synth.getVoices().find((v) => v.lang.toLowerCase().startsWith(primary)) ||
-      null;
 
-    let finished = false;
-    const finish = () => {
-      if (finished) return;
-      finished = true;
-      done();
-    };
-
-    const speakNow = (voice: SpeechSynthesisVoice | null) => {
-      if (!voice) {
-        // No voice for this language — a silent countdown beats garbled speech.
-        console.warn('[SOS] no browser voice for ' + target + ' — staying silent');
-        finish();
-        return;
-      }
-      try {
-        const utter = new SpeechSynthesisUtterance(text);
-        utter.lang = target;
-        utter.voice = voice;
-        utter.rate = 0.95;
-        // Watchdog: if the browser never fires onend/onerror (a known Chrome
-        // quirk with unloaded voices / backgrounded tabs), release the queue.
-        window.setTimeout(finish, 15000);
-        utter.onend = finish;
-        utter.onerror = finish;
-        synth.speak(utter);
-      } catch {
-        finish();
-      }
-    };
-
-    const voice = pickVoice();
-    if (voice) {
-      speakNow(voice);
-      return;
-    }
-    if (synth.getVoices().length === 0) {
-      // Chrome loads voices asynchronously — getVoices() is empty at first.
-      // Wait for the voiceschanged event once before giving up.
-      const onVoices = () => {
-        synth.removeEventListener('voiceschanged', onVoices);
-        speakNow(pickVoice());
-      };
-      synth.addEventListener('voiceschanged', onVoices);
-      window.setTimeout(() => {
-        synth.removeEventListener('voiceschanged', onVoices);
-        speakNow(pickVoice());
-      }, 3000);
-      return;
-    }
-    speakNow(null); // voices loaded, but none match the language — stay silent
-  };
 
   // Announce a line aloud in grandma's language (one at a time). If a line is
   // already playing the new one is queued, so the "alert sent" confirmation
@@ -154,9 +90,6 @@ export default function EmergencyPage() {
       return;
     }
     speakingRef.current = true;
-    // One-shot: playSpeech already guards its own callback, but the browser
-    // fallback can theoretically fire onend AND onerror — a second call would
-    // wrongly reset speakingRef mid-playback and replay the queue.
     let finished = false;
     const done = () => {
       if (finished) return;
@@ -171,10 +104,11 @@ export default function EmergencyPage() {
       if (cached) {
         audio = cached;
       } else {
+        // SOS uses a faster pace (1.1) for urgency
         const res = await fetch('/api/tts', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text, target_language_code: grandmaLangCode(), speaker: grandmaVoice() }),
+          body: JSON.stringify({ text, target_language_code: grandmaLangCode(), speaker: grandmaVoice(), pace: 1.1 }),
         });
         const data = await res.json();
         if (!res.ok || !data.audio) throw new Error('TTS failed');
@@ -182,9 +116,7 @@ export default function EmergencyPage() {
       }
       playSpeech(audio, done);
     } catch {
-      // Sarvam TTS down (e.g. credits exhausted) — fall back to the browser's
-      // built-in speech synthesis instead of staying silent.
-      speakWithBrowser(text, done);
+      speakWithBrowserTts(text, grandmaLangCode(), done);
     }
   };
 
@@ -207,7 +139,7 @@ export default function EmergencyPage() {
         const res = await fetch('/api/tts', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text, target_language_code: target, speaker: voice }),
+          body: JSON.stringify({ text, target_language_code: target, speaker: voice, pace: 1.1 }),
         });
         const data = await res.json();
         if (res.ok && data.audio) {
@@ -266,18 +198,8 @@ export default function EmergencyPage() {
     const target = grandmaLangCode();
     const voice = grandmaVoice();
     const countdownText = fmt(lang, 'emergency.voiceCountdown', { n: COUNTDOWN_SECONDS });
-    // Prefer the persisted audio (instant). If it isn't ready yet — e.g. SOS
-    // pressed before the page-load warm finished — wait for the fetch so the
-    // full announcement plays from the start of the countdown. If TTS is
-    // down, fall back to the browser voice and count down anyway.
-    setPreparing(true);
-    const audio = await fetchSosAudio('countdown', countdownText, target, voice);
-    setPreparing(false);
-    // Grandma may have canceled while the voice was preparing — then the
-    // countdown must NOT start (and the alert must NOT fire).
-    if (!armedRef.current) return;
-    if (audio) playSpeech(audio);
-    else speak(countdownText);
+
+    // Start countdown IMMEDIATELY — no waiting for TTS.
     timerRef.current = setInterval(() => {
       setCountdown((c) => {
         if (c <= 1) {
@@ -288,6 +210,22 @@ export default function EmergencyPage() {
         return c - 1;
       });
     }, 1000);
+
+    // Play audio: cached Sarvam is instant; otherwise browser TTS fills the gap.
+    const cached = readSosAudio('countdown');
+    if (cached?.lang === target && cached.voice === voice) {
+      // Cache hit — play instantly
+      playSpeech(cached.audio);
+    } else {
+      // Cache miss — browser TTS is instant (~100ms), Sarvam replaces when ready
+      speakWithBrowserTts(countdownText, target);
+      fetchSosAudio('countdown', countdownText, target, voice).then((audio) => {
+        if (armedRef.current && audio) {
+          stopBrowserTts(); // cut browser TTS
+          playSpeech(audio); // swap to higher-quality Sarvam audio
+        }
+      });
+    }
   };
 
   const sendAlert = async () => {
@@ -303,13 +241,23 @@ export default function EmergencyPage() {
       });
       if (!res.ok) throw new Error('failed');
       setPhase('sent');
-      // Cache the confirmation line too, so repeat SOS runs stay instant.
+      stopBrowserTts(); // cut any browser TTS from the countdown
+      // Play confirmation immediately: cached Sarvam is instant, browser TTS fills the gap.
       const sentText = translate(lang, 'emergency.voiceSent');
       const target = grandmaLangCode();
       const voice = grandmaVoice();
-      const audio = await fetchSosAudio('sent', sentText, target, voice);
-      if (audio) playSpeech(audio);
-      else speak(sentText);
+      const cached = readSosAudio('sent');
+      if (cached?.lang === target && cached.voice === voice) {
+        playSpeech(cached.audio);
+      } else {
+        speakWithBrowserTts(sentText, target);
+        fetchSosAudio('sent', sentText, target, voice).then((audio) => {
+          if (audio) {
+            stopBrowserTts();
+            playSpeech(audio);
+          }
+        });
+      }
     } catch {
       setPhase('idle');
       setError(translate(lang, 'emergency.alertError'));
@@ -356,7 +304,7 @@ export default function EmergencyPage() {
                 cleanup();
                 queuedRef.current = null; // don't speak anything still queued
                 stopSpeech(); // cut the countdown announcement
-                window.speechSynthesis?.cancel(); // and any browser-TTS fallback
+                stopBrowserTts(); // and any browser-TTS fallback
                 setCountdown(COUNTDOWN_SECONDS);
                 setPhase('idle');
               }}
@@ -367,9 +315,8 @@ export default function EmergencyPage() {
             </button>
             <p className="mt-6 text-base font-bold text-ink">
               <T k="emergency.calling" />
-            </p>
-            <p className="text-xs font-semibold text-terra">
-              {preparing ? translate(lang, 'emergency.preparing') : translate(lang, 'emergency.cancel')}
+            </p>              <p className="text-xs font-semibold text-terra">
+              {translate(lang, 'emergency.cancel')}
             </p>
           </div>
         )}

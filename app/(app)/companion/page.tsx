@@ -5,7 +5,7 @@ import { T, translate, useLang, type LangKey } from '../../lib/i18n';
 import { grandmaName, grandmaLangCode, grandmaVoice } from '../../lib/langs';
 import { grabLocation, readSavedLocation } from '../../lib/location';
 import { localizeNumbers } from '../../lib/numwords';
-import { playSpeech, stopSpeech } from '../../lib/audio';
+import { playSpeech, stopSpeech, speakWithBrowserTts, stopBrowserTts } from '../../lib/audio';
 
 type Turn = { from: 'user' | 'ai'; text: string; uid: number };
 type Cached = { text: string; audio: string };
@@ -472,6 +472,7 @@ export default function CompanionPage() {
       recorderRef.current?.stop();
       streamRef.current?.getTracks().forEach((t) => t.stop());
       stopSpeech();
+      stopBrowserTts();
     };
   }, []);
 
@@ -541,6 +542,9 @@ export default function CompanionPage() {
 
   const start = async () => {
     if (busyRef.current) return;
+    // Cut any audio still playing so grandma's voice isn't picked up by the mic.
+    stopSpeech();
+    stopBrowserTts();
     setError('');
     setListening(true);
     try {
@@ -573,6 +577,8 @@ export default function CompanionPage() {
   // it aloud, and show it as the companion's turn. `source` is the language
   // the text is authored in — Tamil-native content (riddles) is spoken
   // directly when the UI is Tamil, and translated on the fly otherwise.
+  // Plays browser TTS instantly (~100ms) then swaps to Sarvam audio (~1-3s)
+  // when ready — grandma always hears something within a second.
   const speakDynamic = async (enText: string, mySeq: number, source: string = 'en-IN') => {
     busyRef.current = true;
     try {
@@ -592,8 +598,6 @@ export default function CompanionPage() {
         if (!tr.ok || !trData.translated_text) throw new Error(trData.error || 'reply failed');
         text = trData.translated_text;
       }
-      // Scripted English says "Grandma"; swap in the right term for the target
-      // language (பாட்டி / दादी / Grandma…) after translation.
       text = localizeAddress(text, target);
       if (mySeq !== seqRef.current) {
         setThinking(false);
@@ -601,23 +605,26 @@ export default function CompanionPage() {
       }
       const turnUid = nextUid();
       setTurns((t) => [...t, { from: 'ai', text, uid: turnUid }]);
+      setThinking(false);
+      setSpeakingId(turnUid);
+      // Play browser TTS immediately — grandma hears something within ~100ms.
+      speakWithBrowserTts(text, target, () => {
+        if (seqRef.current === mySeq) setSpeakingId(null);
+      });
+      // Fetch Sarvam TTS in background — swap to higher quality when ready.
       const tts = await fetch('/api/tts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text, target_language_code: target, speaker: grandmaVoice() }),
       });
       const ttsData = await tts.json();
-      if (mySeq !== seqRef.current) {
-        setThinking(false);
-        return;
+      if (mySeq !== seqRef.current) return;
+      if (tts.ok && ttsData.audio) {
+        stopBrowserTts(); // cut browser TTS
+        playSpeech(ttsData.audio, () => {
+          if (seqRef.current === mySeq) setSpeakingId(null);
+        });
       }
-      // Only release the mic once the reply is actually ready to play, so a
-      // tap during the translate/TTS window can't start a second recording.
-      setThinking(false);
-      setSpeakingId(turnUid);
-      playSpeech(ttsData.audio, () => {
-        if (seqRef.current === mySeq) setSpeakingId(null);
-      });
     } catch (err: any) {
       setThinking(false);
       setError(err.message || translate(lang, 'comp.errReply'));
@@ -973,22 +980,29 @@ export default function CompanionPage() {
       }
       const turnUid = nextUid();
       setTurns((t) => [...t, { from: 'ai', text: data.text, uid: turnUid }]);
-      const tts = await fetch('/api/tts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: data.text, target_language_code: target, speaker: grandmaVoice() }),
-      });
-      const ttsData = await tts.json();
-      if (!tts.ok || !ttsData.audio) throw new Error('tts failed');
-      if (mySeq !== seqRef.current) {
-        setThinking(false);
-        return;
-      }
       setThinking(false);
       setSpeakingId(turnUid);
-      playSpeech(ttsData.audio, () => {
+      // Play browser TTS instantly — grandma hears the reply within ~100ms.
+      speakWithBrowserTts(data.text, target, () => {
         if (seqRef.current === mySeq) setSpeakingId(null);
       });
+      // Fetch Sarvam TTS in background — swap to higher quality when ready.
+      try {
+        const tts = await fetch('/api/tts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: data.text, target_language_code: target, speaker: grandmaVoice() }),
+        });
+        const ttsData = await tts.json();
+        if (tts.ok && ttsData.audio && mySeq === seqRef.current) {
+          stopBrowserTts();
+          playSpeech(ttsData.audio, () => {
+            if (seqRef.current === mySeq) setSpeakingId(null);
+          });
+        }
+      } catch {
+        // Sarvam TTS failed — browser TTS is already playing, that's fine.
+      }
     } catch (err: any) {
       setThinking(false);
       // A transient ChatGPT hiccup shouldn't leave grandma with an error — fall
