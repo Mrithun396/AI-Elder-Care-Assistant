@@ -7,6 +7,8 @@ import CreditMeter from '../../../components/CreditMeter';
 // The signed Android build, served as a static file from /public. Bump the
 // filename here whenever a newer APK is built.
 const APK_URL = '/bridge-app-v1.0.0.apk';
+// Shown in small grey text next to the download button.
+const APK_VERSION = '0.1';
 
 type LinkedGrandparent = { id: string; name: string; language?: string | null };
 type Member = { name: string; relation?: string; email?: string | null };
@@ -286,6 +288,7 @@ export default function FamilySettingsPage() {
             Download Android app <span className="font-medium text-white/80">(phone APK download only)</span>
           </span>
         </a>
+        <p className="mt-2 text-center text-[11px] font-medium text-ink-muted/70">apk version {APK_VERSION}</p>
       </section>
 
       {/* Log out */}
