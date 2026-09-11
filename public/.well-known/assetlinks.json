@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "app.netlify.ai_elder_care_assistant.twa",
+      "sha256_cert_fingerprints": [
+        "75:67:D1:4B:E1:ED:DB:70:5A:4F:9C:09:62:23:5B:76:6A:A2:BF:3A:FF:4B:9F:F8:4C:10:D7:D8:81:F5:E4:BB"
+      ]
+    }
+  }
+]
