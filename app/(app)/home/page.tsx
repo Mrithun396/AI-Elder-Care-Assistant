@@ -8,7 +8,6 @@ import {
   Siren,
   Bell,
   HeartPulse,
-  ChevronRight,
 } from 'lucide-react';
 import { T, fmt, translate, useLang } from '../../lib/i18n';
 import CreditMeter from '../../components/CreditMeter';
@@ -128,18 +127,6 @@ export default function HomePage() {
 
       {/* Credit meter */}
       <CreditMeter />
-
-      {/* Family dashboard link */}
-      <Link
-        href="/family"
-        className="flex items-center justify-between rounded-3xl border border-line bg-card-soft p-4 text-sm font-semibold text-ink transition-colors hover:bg-card"
-      >
-        <span className="flex items-center gap-2">
-          <HeartPulse size={16} className="text-brand" />
-          <T k="home.openFamily" />
-        </span>
-        <ChevronRight size={18} className="text-ink-muted" />
-      </Link>
     </div>
   );
 }

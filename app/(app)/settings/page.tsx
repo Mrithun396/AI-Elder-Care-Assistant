@@ -1,7 +1,6 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
-import Link from 'next/link';
-import { Languages, Volume2, Users, Moon, Info, ChevronRight, HeartHandshake, Play, Square, KeyRound, LogOut, Smartphone, Download } from 'lucide-react';
+import { Languages, Volume2, Users, Moon, Info, HeartHandshake, Play, Square, KeyRound, LogOut, Smartphone, Download } from 'lucide-react';
 import { LANGS, VOICES, codeForLang, grandmaLangCode, voiceLabel } from '../../lib/langs';
 import { T, translate, useLang } from '../../lib/i18n';
 import { playSpeech, stopSpeech } from '../../lib/audio';
@@ -434,9 +433,6 @@ export default function SettingsPage() {
             <span><b className="text-ink">Bridge</b> — <T k="shell.tagline" /></span>
             <span className="ml-auto text-xs">v0.1.0</span>
           </div>
-          <Link href="/family" className={`${row} bg-card-soft hover:bg-brand-soft`}>
-            <T k="settings.openFamily" /> <ChevronRight size={16} />
-          </Link>
         </div>
       </section>
     </div>
