@@ -31,9 +31,12 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Skip non-GET and API requests
+  // Skip non-GET, API, and file-download requests. The APK is a large binary
+  // that must always come fresh from the network — caching it here could keep
+  // serving an outdated build forever.
   if (event.request.method !== 'GET') return;
   if (event.request.url.includes('/api/')) return;
+  if (event.request.url.endsWith('.apk')) return;
 
   event.respondWith(
     caches.match(event.request).then((cached) => {

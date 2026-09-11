@@ -1,11 +1,15 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { Languages, Volume2, Users, Moon, Info, ChevronRight, HeartHandshake, Play, Square, KeyRound, LogOut } from 'lucide-react';
+import { Languages, Volume2, Users, Moon, Info, ChevronRight, HeartHandshake, Play, Square, KeyRound, LogOut, Smartphone, Download } from 'lucide-react';
 import { LANGS, VOICES, codeForLang, grandmaLangCode, voiceLabel } from '../../lib/langs';
 import { T, translate, useLang } from '../../lib/i18n';
 import { playSpeech, stopSpeech } from '../../lib/audio';
 import CreditMeter from '../../components/CreditMeter';
+
+// The signed Android build, served as a static file from /public. Bump the
+// filename here whenever a newer APK is built.
+const APK_URL = '/bridge-app-v1.0.0.apk';
 
 const LANG_NAMES = LANGS.map((l) => l.name);
 
@@ -364,6 +368,25 @@ export default function SettingsPage() {
             ))}
           </div>
         </div>
+      </section>
+
+      {/* Phone app — the Android build, served from /public. An APK can only be
+          installed on a phone, so the label says so plainly. */}
+      <section className="rounded-3xl border border-line bg-card p-4 shadow-soft">
+        <p className="mb-1 flex items-center gap-3 text-sm font-semibold text-ink">
+          <Smartphone size={18} className="text-accent" /> Phone App
+        </p>
+        <p className="mb-3 text-xs text-ink-muted">Install Bridge on an Android phone.</p>
+        <a
+          href={APK_URL}
+          download
+          className="flex items-center justify-center gap-2 rounded-2xl bg-brand px-4 py-3 text-center text-sm font-bold text-white transition-colors hover:bg-brand-strong"
+        >
+          <Download size={16} className="shrink-0" />
+          <span>
+            Download Android app <span className="font-medium text-white/80">(phone APK download only)</span>
+          </span>
+        </a>
       </section>
 
       {/* Log out */}

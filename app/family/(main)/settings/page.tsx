@@ -1,8 +1,12 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { Moon, Sun, KeyRound, Unlink, Languages, UserRound, LogOut } from 'lucide-react';
+import { Moon, Sun, KeyRound, Unlink, Languages, UserRound, LogOut, Smartphone, Download } from 'lucide-react';
 import { LANGS, nativeName } from '../../../lib/langs';
 import CreditMeter from '../../../components/CreditMeter';
+
+// The signed Android build, served as a static file from /public. Bump the
+// filename here whenever a newer APK is built.
+const APK_URL = '/bridge-app-v1.0.0.apk';
 
 type LinkedGrandparent = { id: string; name: string; language?: string | null };
 type Member = { name: string; relation?: string; email?: string | null };
@@ -261,6 +265,27 @@ export default function FamilySettingsPage() {
         <p className="mt-3 text-[11px] leading-relaxed text-ink-muted">
           Ask each grandparent for their family code — it&apos;s shown when they created their account, and in their Settings → Your Family Code.
         </p>
+      </section>
+
+      {/* Phone app — the Android build, served from /public. An APK can only be
+          installed on a phone, so the label says so plainly. */}
+      <section className={section}>
+        <p className={sectionTitle}>
+          <Smartphone size={17} className="text-brand" /> Phone app
+        </p>
+        <p className="mb-3 text-xs text-ink-muted">
+          Install Bridge on an Android phone as a real app — no browser bar, and it opens like any other app.
+        </p>
+        <a
+          href={APK_URL}
+          download
+          className="flex items-center justify-center gap-2 rounded-2xl bg-brand px-4 py-3 text-center text-sm font-bold text-white transition-opacity hover:opacity-90"
+        >
+          <Download size={16} className="shrink-0" />
+          <span>
+            Download Android app <span className="font-medium text-white/80">(phone APK download only)</span>
+          </span>
+        </a>
       </section>
 
       {/* Log out */}
