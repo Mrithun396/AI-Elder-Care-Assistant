@@ -8,9 +8,9 @@ import CreditMeter from '../../components/CreditMeter';
 
 // The signed Android build, served as a static file from /public. Bump the
 // filename here whenever a newer APK is built.
-const APK_URL = '/bridge-native-v1.1.0.apk';
+const APK_URL = '/bridge-native-v1.1.1.apk';
 // Shown in small grey text next to the download button.
-const APK_VERSION = '1.1.0';
+const APK_VERSION = '1.1.1';
 
 const LANG_NAMES = LANGS.map((l) => l.name);
 
