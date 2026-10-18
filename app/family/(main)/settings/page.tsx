@@ -6,9 +6,9 @@ import CreditMeter from '../../../components/CreditMeter';
 
 // The signed Android build, served as a static file from /public. Bump the
 // filename here whenever a newer APK is built.
-const APK_URL = '/bridge-app-v1.0.0.apk';
+const APK_URL = '/bridge-native-v1.1.0.apk';
 // Shown in small grey text next to the download button.
-const APK_VERSION = '0.1';
+const APK_VERSION = '1.1.0';
 
 type LinkedGrandparent = { id: string; name: string; language?: string | null };
 type Member = { name: string; relation?: string; email?: string | null };
